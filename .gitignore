@@ -36,3 +36,7 @@ Thumbs.db
 
 # electron-builder cache
 .cache/
+
+# Code signing private key and PFX — never commit private key material
+build/signing.key
+build/signing.pfx

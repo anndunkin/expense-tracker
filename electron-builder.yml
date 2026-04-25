@@ -41,6 +41,18 @@ win:
       arch: [x64]
   icon: electron/icon.ico
   artifactName: "ExpenseTrack-${version}-Windows-x64.zip"
+  # Code signing — self-signed certificate
+  # Publisher: Ann Dunkin / Dunkin Global Advisors
+  # Certificate valid through April 2031
+  # Set CSC_LINK to path of build/signing.pfx before building
+  # Set CSC_KEY_PASSWORD to the pfx passphrase (empty string for no passphrase)
+  # e.g.:  CSC_LINK=build/signing.pfx CSC_KEY_PASSWORD="" npx electron-builder --win --x64
+  #
+  # If CSC_LINK is not set, signing is skipped automatically (forceCodeSigning: false)
+  forceCodeSigning: false
+  signingHashAlgorithms:
+    - sha256
+  signDlls: true
 
 publish: null
 nodeGypRebuild: false
