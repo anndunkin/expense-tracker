@@ -75,7 +75,7 @@ function startServer() {
 function createWindow() {
   mainWindow = new BrowserWindow({
     width: 1280, height: 860, minWidth: 900, minHeight: 600,
-    title: "ExpenseTrack",
+    title: "Expense Track",
     icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#f5f7fa",
     webPreferences: { nodeIntegration: false, contextIsolation: true },
@@ -131,7 +131,7 @@ function buildMenu() {
     ]},
     { label: "Help", submenu: [
       { label: "About ExpenseTrack", click: () => dialog.showMessageBox(mainWindow, {
-        type: "info", title: "About ExpenseTrack", message: "ExpenseTrack",
+        type: "info", title: "About Expense Track", message: "Expense Track",
         detail: `Version ${app.getVersion()}\n\nExpense reporting for monthly and travel expenses.\n\nMileage reimbursed at 2026 IRS rate: $0.725/mile.`,
         buttons: ["OK"],
       })},

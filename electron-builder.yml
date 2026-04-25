@@ -1,5 +1,5 @@
 appId: com.expensetrack.app
-productName: ExpenseTrack
+productName: Expense Track
 copyright: "Copyright © 2026"
 
 # No asar — keeps path resolution simple
