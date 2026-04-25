@@ -553,13 +553,46 @@ function ItemRowComponent({
         ? "grid-cols-[120px_1fr_150px_80px_110px_100px_80px_32px]"
         : "grid-cols-[120px_1fr_150px_80px_110px_100px_32px]"
     }`} data-testid={`row-item-${idx}`}>
-      <Input
-        type="date"
-        value={item.date ?? ""}
-        onChange={e => onUpdate({ date: e.target.value })}
-        className="h-8 text-xs"
-        data-testid={`input-date-${idx}`}
-      />
+      {/* Date / Prepaid — travel reports can mark an item as prepaid instead of choosing a date */}
+      {rType === "travel" ? (
+        <div className="flex flex-col gap-1">
+          {item.date === "prepaid" ? (
+            <div
+              className="h-8 flex items-center justify-center rounded-md border border-blue-400 bg-blue-50 dark:bg-blue-950/40 text-blue-700 dark:text-blue-300 text-xs font-medium cursor-pointer select-none"
+              onClick={() => onUpdate({ date: new Date().toISOString().split("T")[0] })}
+              title="Click to enter a date instead"
+              data-testid={`input-date-${idx}`}
+            >
+              Prepaid
+            </div>
+          ) : (
+            <Input
+              type="date"
+              value={item.date ?? ""}
+              onChange={e => onUpdate({ date: e.target.value })}
+              className="h-8 text-xs"
+              data-testid={`input-date-${idx}`}
+            />
+          )}
+          <label className="flex items-center gap-1 cursor-pointer select-none" title="Mark as prepaid — no reimbursement date needed">
+            <Checkbox
+              checked={item.date === "prepaid"}
+              onCheckedChange={checked => onUpdate({ date: checked ? "prepaid" : new Date().toISOString().split("T")[0] })}
+              className="h-3 w-3"
+              data-testid={`checkbox-prepaid-${idx}`}
+            />
+            <span className="text-[10px] text-muted-foreground leading-none">Prepaid</span>
+          </label>
+        </div>
+      ) : (
+        <Input
+          type="date"
+          value={item.date ?? ""}
+          onChange={e => onUpdate({ date: e.target.value })}
+          className="h-8 text-xs"
+          data-testid={`input-date-${idx}`}
+        />
+      )}
       <Input
         value={item.purpose ?? ""}
         onChange={e => onUpdate({ purpose: e.target.value })}

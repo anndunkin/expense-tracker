@@ -38,7 +38,9 @@ export default function PrintReportPage() {
 
   const formatDate = (d: string) => {
     if (!d) return "—";
+    if (d === "prepaid") return "Prepaid";
     const dt = new Date(d + "T12:00:00");
+    if (isNaN(dt.getTime())) return d;
     return dt.toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" });
   };
 
