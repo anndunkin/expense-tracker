@@ -1,0 +1,48 @@
+appId: com.expensetrack.app
+productName: ExpenseTrack
+copyright: "Copyright © 2026"
+
+# No asar — keeps path resolution simple
+asar: false
+
+directories:
+  output: dist-electron
+  buildResources: electron
+
+files:
+  # Only the Electron main process files — no node_modules.
+  # All server dependencies are bundled into server/index.cjs by esbuild.
+  - electron/main.cjs
+  - electron/icon.png
+  - package.json
+  # Explicitly exclude everything else
+  - "!node_modules/**"
+  - "!dist/**"
+  - "!src/**"
+  - "!client/**"
+  - "!server/**"
+  - "!shared/**"
+  - "!script/**"
+
+extraResources:
+  # Fully self-contained Express server bundle (all JS deps inlined by esbuild)
+  - from: dist/index.cjs
+    to: server/index.cjs
+  # Native SQLite binary (cannot be bundled — must be a real file)
+  - from: node_modules/better-sqlite3/build/Release/better_sqlite3.node
+    to: native/better_sqlite3.node
+  # Built React frontend
+  - from: dist/public
+    to: public
+
+win:
+  target:
+    - target: zip
+      arch: [x64]
+  icon: electron/icon.ico
+  artifactName: "ExpenseTrack-${version}-Windows-x64.zip"
+
+publish: null
+nodeGypRebuild: false
+buildDependenciesFromSource: false
+npmRebuild: false

@@ -1,0 +1,82 @@
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+/* ── Fonts ─────────────────────────────────────────────────── */
+:root {
+  --font-body: 'Inter', 'Helvetica Neue', sans-serif;
+  --font-mono: 'DM Mono', 'Menlo', monospace;
+}
+
+/* ── Color palette — professional slate/blue for finance ───── */
+/* Light mode */
+:root,
+[data-theme='light'] {
+  --background: 210 20% 98%;
+  --foreground: 215 25% 12%;
+  --card: 0 0% 100%;
+  --card-foreground: 215 25% 12%;
+  --popover: 0 0% 100%;
+  --popover-foreground: 215 25% 12%;
+  --primary: 213 75% 34%;
+  --primary-foreground: 0 0% 100%;
+  --secondary: 213 20% 92%;
+  --secondary-foreground: 213 40% 25%;
+  --muted: 210 16% 95%;
+  --muted-foreground: 215 14% 48%;
+  --accent: 213 20% 93%;
+  --accent-foreground: 213 40% 25%;
+  --destructive: 0 72% 51%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 213 16% 88%;
+  --input: 213 16% 88%;
+  --ring: 213 75% 34%;
+  --radius: 0.5rem;
+}
+
+/* Dark mode */
+.dark,
+[data-theme='dark'] {
+  --background: 218 25% 8%;
+  --foreground: 210 20% 92%;
+  --card: 218 22% 11%;
+  --card-foreground: 210 20% 92%;
+  --popover: 218 22% 11%;
+  --popover-foreground: 210 20% 92%;
+  --primary: 213 65% 58%;
+  --primary-foreground: 218 25% 8%;
+  --secondary: 218 18% 18%;
+  --secondary-foreground: 210 20% 82%;
+  --muted: 218 18% 16%;
+  --muted-foreground: 215 14% 52%;
+  --accent: 218 18% 18%;
+  --accent-foreground: 210 20% 82%;
+  --destructive: 0 62% 56%;
+  --destructive-foreground: 0 0% 100%;
+  --border: 218 18% 22%;
+  --input: 218 18% 22%;
+  --ring: 213 65% 58%;
+}
+
+/* ── Base ───────────────────────────────────────────────────── */
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+html {
+  -webkit-font-smoothing: antialiased;
+  -moz-osx-font-smoothing: grayscale;
+  scroll-behavior: smooth;
+}
+body {
+  min-height: 100dvh;
+  font-family: var(--font-body);
+  background-color: hsl(var(--background));
+  color: hsl(var(--foreground));
+}
+
+/* Monospace for numbers */
+.tabular { font-family: var(--font-mono); font-variant-numeric: tabular-nums; }
+
+/* Print overrides */
+@media print {
+  * { -webkit-print-color-adjust: exact; print-color-adjust: exact; }
+  body { background: white !important; color: black !important; }
+}

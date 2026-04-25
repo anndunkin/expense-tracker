@@ -1,0 +1,38 @@
+# Dependencies
+node_modules/
+
+# Build output
+dist/
+dist-electron/
+.vite/
+
+# SQLite database — never commit; contains user data
+data.db
+data.db-shm
+data.db-wal
+data.db-journal
+
+# Environment variables
+.env
+.env.*
+!.env.example
+
+# Logs
+*.log
+npm-debug.log*
+
+# OS artifacts
+.DS_Store
+Thumbs.db
+
+# Editor artifacts
+.idea/
+.vscode/
+*.swp
+*.swo
+
+# Native binaries (platform-specific — not portable)
+*.node
+
+# electron-builder cache
+.cache/
