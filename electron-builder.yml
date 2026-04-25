@@ -50,9 +50,6 @@ win:
   #
   # If CSC_LINK is not set, signing is skipped automatically (forceCodeSigning: false)
   forceCodeSigning: false
-  signingHashAlgorithms:
-    - sha256
-  signDlls: true
 
 publish: null
 nodeGypRebuild: false
