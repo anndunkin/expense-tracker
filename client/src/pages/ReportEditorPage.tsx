@@ -55,7 +55,7 @@ export default function ReportEditorPage() {
     name: "",
     submitterName: "",
     tripPurpose: "",
-    dateSubmitted: new Date().toISOString().split("T")[0],
+    dateSubmitted: "",  // stays blank until status → complete
     status: "draft",
   }));
   const [items, setItems] = useState<ItemRow[]>([]);
@@ -227,7 +227,13 @@ export default function ReportEditorPage() {
     if (item.id) {
       await apiRequest("DELETE", `/api/items/${item.id}`);
     }
-    setItems(prev => prev.filter(i => i._tempId !== item._tempId && i.id !== item.id));
+    // Keep every item that is NOT the one being removed.
+    // Use a stable unique key: prefer db id, fall back to _tempId.
+    setItems(prev => prev.filter(i => {
+      if (item.id && i.id) return i.id !== item.id;
+      if (item._tempId && i._tempId) return i._tempId !== item._tempId;
+      return true; // shouldn't happen, but never accidentally delete
+    }));
   };
 
   const updateItem = (idx: number, patch: Partial<ItemRow>) => {
@@ -383,7 +389,14 @@ export default function ReportEditorPage() {
               <Label htmlFor="status">Status</Label>
               <Select
                 value={reportMeta.status ?? "draft"}
-                onValueChange={v => setReportMeta(m => ({ ...m, status: v }))}
+                onValueChange={v => setReportMeta(m => ({
+                  ...m,
+                  status: v,
+                  // Auto-fill date submitted when marked complete; clear it if reverted to draft
+                  dateSubmitted: v === "complete"
+                    ? (m.dateSubmitted || new Date().toISOString().split("T")[0])
+                    : (v === "draft" ? "" : m.dateSubmitted),
+                }))}
               >
                 <SelectTrigger id="status" data-testid="select-status">
                   <SelectValue />
@@ -466,29 +479,24 @@ export default function ReportEditorPage() {
           <Card className="p-6">
             <h2 className="text-sm font-semibold text-foreground mb-4">Summary</h2>
             <div className="space-y-2 max-w-xs ml-auto">
+              {/* Always show reimbursable sub-line */}
+              <div className="flex justify-between text-sm">
+                <span className="text-muted-foreground">Reimbursable expenses</span>
+                <span className="font-medium">${totalReimbursable.toFixed(2)}</span>
+              </div>
+              {/* Corporate card line — travel only, when there are card items */}
               {rType === "travel" && cardItems.length > 0 && (
-                <>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Reimbursable expenses</span>
-                    <span className="font-medium">${totalReimbursable.toFixed(2)}</span>
-                  </div>
-                  <div className="flex justify-between text-sm">
-                    <span className="text-muted-foreground">Billed to corporate card</span>
-                    <span className="font-medium">${totalCard.toFixed(2)}</span>
-                  </div>
-                  <Separator />
-                  <div className="flex justify-between text-sm font-semibold">
-                    <span>Total (all)</span>
-                    <span>${totalAll.toFixed(2)}</span>
-                  </div>
-                </>
-              )}
-              {(rType === "monthly" || cardItems.length === 0) && (
-                <div className="flex justify-between text-sm font-semibold">
-                  <span>Total reimbursable</span>
-                  <span>${totalReimbursable.toFixed(2)}</span>
+                <div className="flex justify-between text-sm">
+                  <span className="text-muted-foreground">Billed to corporate card</span>
+                  <span className="font-medium">${totalCard.toFixed(2)}</span>
                 </div>
               )}
+              <Separator />
+              {/* Total expenses = all items */}
+              <div className="flex justify-between text-sm font-semibold">
+                <span>Total expenses</span>
+                <span>${totalAll.toFixed(2)}</span>
+              </div>
               <Separator />
               <div className="flex justify-between text-sm">
                 <span className="text-muted-foreground flex items-center gap-1">
@@ -601,7 +609,7 @@ function ItemRowComponent({
         data-testid={`input-purpose-${idx}`}
       />
       <Select value={item.category ?? ""} onValueChange={handleCategoryChange}>
-        <SelectTrigger className="h-8 text-xs" data-testid={`select-category-${idx}`}>
+        <SelectTrigger className="h-8 text-xs [&>span]:text-left [&>span]:truncate" data-testid={`select-category-${idx}`}>
           <SelectValue placeholder="Category" />
         </SelectTrigger>
         <SelectContent>
@@ -618,7 +626,7 @@ function ItemRowComponent({
         </div>
       ) : (
         <Select value={item.currency ?? "USD"} onValueChange={v => { onUpdate({ currency: v }); onCurrencyChange(v); }}>
-          <SelectTrigger className="h-8 text-xs" data-testid={`select-currency-${idx}`}>
+          <SelectTrigger className="h-8 text-xs [&>span]:text-left" data-testid={`select-currency-${idx}`}>
             <SelectValue />
           </SelectTrigger>
           <SelectContent>
@@ -629,15 +637,18 @@ function ItemRowComponent({
         </Select>
       )}
 
-      {/* Amount / Miles */}
+      {/* Amount / Miles — string-controlled so the zero is cleared on focus */}
       <div>
         <Input
           type="number"
           min={0}
           step={isMileage ? 1 : 0.01}
           value={isMileage ? (item.miles ?? 0) : (item.amount ?? 0)}
+          onFocus={e => e.target.select()}
           onChange={e => {
-            const val = parseFloat(e.target.value) || 0;
+            const raw = e.target.value;
+            const val = raw === "" ? 0 : parseFloat(raw);
+            if (isNaN(val)) return;
             if (isMileage) {
               onUpdate({ miles: val, amountUsd: val * 0.725, amount: val * 0.725 });
             } else {

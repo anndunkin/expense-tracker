@@ -182,22 +182,23 @@ export default function PrintReportPage() {
         <div className="mt-6 border border-gray-300 rounded p-4">
           <h2 className="text-sm font-bold text-gray-700 uppercase tracking-wide mb-3">Summary</h2>
           <div className="space-y-1.5">
+            {/* Reimbursable line — always shown */}
+            <div className="flex justify-between text-sm">
+              <span className="text-gray-600">Reimbursable expenses</span>
+              <span className="font-medium">${formatAmt(totalReimbursable)}</span>
+            </div>
+            {/* Corporate card line — travel only */}
             {isTravel && cardItems.length > 0 && (
-              <>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Reimbursable expenses</span>
-                  <span className="font-medium">${formatAmt(totalReimbursable)}</span>
-                </div>
-                <div className="flex justify-between text-sm">
-                  <span className="text-gray-600">Billed to corporate card</span>
-                  <span className="font-medium">${formatAmt(totalCard)}</span>
-                </div>
-                <div className="flex justify-between text-sm border-t border-gray-200 pt-1.5">
-                  <span className="font-semibold text-gray-700">Total all expenses</span>
-                  <span className="font-semibold">${formatAmt(totalAll)}</span>
-                </div>
-              </>
+              <div className="flex justify-between text-sm">
+                <span className="text-gray-600">Billed to corporate card</span>
+                <span className="font-medium">${formatAmt(totalCard)}</span>
+              </div>
             )}
+            {/* Total expenses — always shown */}
+            <div className="flex justify-between text-sm border-t border-gray-200 pt-1.5">
+              <span className="font-semibold text-gray-700">Total expenses</span>
+              <span className="font-semibold">${formatAmt(totalAll)}</span>
+            </div>
             <div className="flex justify-between text-sm">
               <span className="text-gray-600">Tax deductible amount <span className="text-xs">(meals at 50%)</span></span>
               <span className="font-medium">${formatAmt(taxDeductible)}</span>
