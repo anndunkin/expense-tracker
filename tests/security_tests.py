@@ -193,17 +193,17 @@ assert_status("4c: extra unknown fields accepted (stripped, not errored)", s, [2
 # ─────────────────────────────────────────────────────────────────────────────
 section("5 — HTTP METHOD TAMPERING")
 
-# 5a: PUT on reports list (no handler)
-s, _ = put("/api/reports", {"name": "put test", "type": "monthly"})
-assert_status("5a: PUT /api/reports returns 404/405", s, [404, 405])
+# 5a: PUT on an item (only PATCH is registered — PUT has no handler on API routes)
+s, _ = put(f"/api/items/{SEED_ID}", {"amount": 99})
+assert_status("5a: PUT /api/items/:id returns 404/405", s, [404, 405])
 
-# 5b: PUT on single report (no handler)
-s, _ = put(f"/api/reports/{SEED_ID}", {"name": "tamper"})
-assert_status("5b: PUT /api/reports/:id returns 404/405", s, [404, 405])
+# 5b: PUT on a category (only PATCH is registered)
+s, _ = put(f"/api/categories/{SEED_ID}", {"name": "tamper"})
+assert_status("5b: PUT /api/categories/:id returns 404/405", s, [404, 405])
 
-# 5c: DELETE on items list (no handler)
-s, _ = delete(f"/api/reports/{SEED_ID}/items")
-assert_status("5c: DELETE /api/reports/:id/items returns 404/405", s, [404, 405])
+# 5c: DELETE on exchange-rate endpoint (read-only, no DELETE handler)
+s, _ = delete(f"/api/exchange-rate/USD")
+assert_status("5c: DELETE /api/exchange-rate/:code returns 404/405", s, [404, 405])
 
 # 5d: HEAD on reports (no explicit handler; may return 200 or 404)
 s, headers = head("/api/reports")
@@ -222,11 +222,11 @@ s, body = post("/api/reports", {"name": "Bad type", "type": 12345,
     "submitterName": "T", "status": "draft"})
 assert_status("6b: wrong type for 'type' field returns 400", s, [400, 422])
 
-# 6c: Oversized string (100 KB name)
-big = "A" * 100_000
+# 6c: Oversized body — 51KB, just over the 50KB limit, must return 413 not crash
+big = "A" * 51_000
 s, body = post("/api/reports", {"name": big, "type": "monthly",
     "submitterName": "T", "status": "draft"})
-assert_status("6c: oversized 100KB name field handled (200/400/413)", s, [200, 201, 400, 413])
+assert_status("6c: oversized 51KB body returns 413 (not server crash)", s, 413)
 
 # 6d: Completely empty body
 r = requests.post(f"{BASE}/api/reports", data="", headers={"Content-Type": "application/json"})

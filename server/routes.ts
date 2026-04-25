@@ -12,6 +12,19 @@ function applySecurityHeaders(app: Express) {
 export async function registerRoutes(httpServer: Server, app: Express) {
   applySecurityHeaders(app);
 
+  // ─── Require application/json for all mutating API requests ─────────────────
+  // Returns 415 Unsupported Media Type if Content-Type is not application/json.
+  // This catches form-urlencoded and other non-JSON bodies before they reach routes.
+  app.use("/api", (req, res, next) => {
+    if (["POST", "PUT", "PATCH"].includes(req.method)) {
+      const ct = req.headers["content-type"] || "";
+      if (!ct.startsWith("application/json")) {
+        return res.status(415).json({ error: "Content-Type must be application/json" });
+      }
+    }
+    next();
+  });
+
   // ─── Reports ────────────────────────────────────────────────────────────────
   app.get("/api/reports", (req, res) => {
     res.json(storage.getReports());
@@ -154,5 +167,13 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       }
     }
     res.json({ report: newReport, items: savedItems });
+  });
+
+  // ─── Method Not Allowed catch-all for /api/* ────────────────────────────
+  // Must be LAST — catches any method not explicitly registered above.
+  // Prevents unregistered HTTP methods from falling through to the Vite
+  // dev-server catch-all (which would return 200 for everything).
+  app.all("/api/*path", (_req, res) => {
+    res.status(405).json({ error: "Method not allowed" });
   });
 }
