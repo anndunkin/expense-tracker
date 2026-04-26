@@ -1,4 +1,4 @@
-import { useState } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useLocation } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -36,7 +36,20 @@ export default function HomePage() {
     },
   });
 
-  // File open handler — trigger file input
+  // Core import logic — accepts parsed JSON data and the source file path (if known)
+  const importReport = useCallback(async (data: any, filePath?: string) => {
+    try {
+      const res = await apiRequest("POST", "/api/reports/import", { ...data, filePath: filePath || "" });
+      const imported = await res.json();
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({ title: "Report opened", description: imported.report.name });
+      navigate(`/report/${imported.report.id}`);
+    } catch {
+      toast({ title: "Error opening file", description: "Invalid expense report file.", variant: "destructive" });
+    }
+  }, [navigate, toast]);
+
+  // File open handler — trigger file input (browser + Electron button)
   const handleOpenFile = () => {
     const input = document.createElement("input");
     input.type = "file";
@@ -47,17 +60,37 @@ export default function HomePage() {
       try {
         const text = await file.text();
         const data = JSON.parse(text);
-        const res = await apiRequest("POST", "/api/reports/import", data);
-        const imported = await res.json();
-        queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-        toast({ title: "Report opened", description: imported.report.name });
-        navigate(`/report/${imported.report.id}`);
+        // Browser security: file.name is just the filename, not the full path.
+        // In Electron this button still only gets the name; full paths come via
+        // the native File menu which calls window.__electronOpenFile.
+        await importReport(data, "");
       } catch {
         toast({ title: "Error opening file", description: "Invalid expense report file.", variant: "destructive" });
       }
     };
     input.click();
   };
+
+  // Register Electron File → Open handler so native menu passes the full path
+  useEffect(() => {
+    const handler = async (fullPath: string) => {
+      try {
+        const electronAPI = (window as any).electronAPI;
+        if (!electronAPI) return;
+        const result = await electronAPI.readFile(fullPath);
+        if (result.error) {
+          toast({ title: "Could not read file", description: result.error, variant: "destructive" });
+          return;
+        }
+        const data = JSON.parse(result.content);
+        await importReport(data, fullPath);
+      } catch {
+        toast({ title: "Error opening file", description: "Invalid expense report file.", variant: "destructive" });
+      }
+    };
+    (window as any).__electronOpenFile = handler;
+    return () => { delete (window as any).__electronOpenFile; };
+  }, [importReport, toast]);
 
   const sortedReports = [...reports].sort((a, b) => b.id - a.id);
 

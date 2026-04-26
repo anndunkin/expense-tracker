@@ -171,6 +171,15 @@ ipcMain.handle("show-open-dialog", async (_event, opts = {}) => {
   return { canceled: result.canceled, filePath: result.filePaths?.[0] ?? null };
 });
 
+ipcMain.handle("read-file", async (_event, filePath) => {
+  try {
+    const content = fs.readFileSync(filePath, "utf8");
+    return { content };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
+
 ipcMain.handle("write-file", async (_event, { filePath, content }) => {
   try {
     fs.writeFileSync(filePath, content, "utf8");

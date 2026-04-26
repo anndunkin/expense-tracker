@@ -151,7 +151,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
   // ─── Bulk save (import/export a whole report) ─────────────────────────────
   app.post("/api/reports/import", (req, res) => {
-    const { report, items } = req.body;
+    const { report, items, filePath } = req.body;
     const newReport = storage.createReport({
       name: report.name || "Imported Report",
       type: report.type,
@@ -159,6 +159,7 @@ export async function registerRoutes(httpServer: Server, app: Express) {
       tripPurpose: report.tripPurpose || "",
       dateSubmitted: report.dateSubmitted || "",
       status: report.status || "draft",
+      filePath: (typeof filePath === "string" && filePath) ? filePath : (report.filePath || ""),
     });
     const savedItems = [];
     if (Array.isArray(items)) {
