@@ -162,8 +162,31 @@ export default function ReportEditorPage() {
 
   const handleSaveAs = async () => {
     const name = window.prompt("Save as:", reportMeta.name || "Untitled Report");
-    if (name === null) return;
-    await handleSave(name);
+    if (name === null) return; // cancelled
+    if (!name.trim()) return;  // empty string
+    try {
+      // Always create a NEW report — never overwrite the current one.
+      const created = await createReport.mutateAsync({ ...reportMeta, id: undefined, name: name.trim() });
+      const newId = created.id;
+
+      // Copy all current items (strip existing ids so the server assigns new ones)
+      const itemsToCopy = items.map(({ id: _id, _tempId: _t, ...rest }) => rest);
+      await saveItems(newId, itemsToCopy);
+
+      // Reload items to get their new server-assigned ids
+      const res = await apiRequest("GET", `/api/reports/${newId}/items`);
+      const savedItems = await res.json();
+
+      // Switch the editor to the new report
+      setSavedReportId(newId);
+      setReportMeta(m => ({ ...m, id: newId, name: name.trim() }));
+      setItems(savedItems.map((i: ExpenseItem) => ({ ...i, _dirty: false })));
+      navigate(`/report/${newId}`, { replace: true });
+      queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
+      toast({ title: "Saved as new report", description: name.trim() });
+    } catch {
+      toast({ title: "Save As failed", variant: "destructive" });
+    }
   };
 
   const handleExportFile = async () => {
