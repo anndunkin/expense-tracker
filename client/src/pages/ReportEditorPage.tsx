@@ -646,12 +646,23 @@ export default function ReportEditorPage() {
 
       {/* Save As dialog — uses a proper modal instead of window.prompt (blocked in Electron) */}
       <Dialog open={showSaveAs} onOpenChange={v => !saveAsWorking && setShowSaveAs(v)}>
-        <DialogContent className="w-full max-w-lg">
-          <DialogHeader>
-            <DialogTitle>Save As New Report</DialogTitle>
-          </DialogHeader>
+        {/*
+          Electron window can be narrow. We pin to a fixed width, add overflow-hidden so
+          nothing bleeds out, and keep the footer outside the scrollable area so it's
+          always visible.
+        */}
+        <DialogContent
+          className="flex flex-col gap-0 p-0 overflow-hidden"
+          style={{ width: "min(480px, calc(100vw - 48px))", maxWidth: "none" }}
+        >
+          {/* Header */}
+          <div className="px-6 pt-6 pb-4 border-b border-border flex-shrink-0">
+            <h2 className="text-base font-semibold leading-none tracking-tight">Save As New Report</h2>
+          </div>
 
-          <div className="space-y-5 py-2">
+          {/* Scrollable body */}
+          <div className="px-6 py-5 space-y-5 overflow-y-auto">
+
             {/* Report name */}
             <div className="space-y-1.5">
               <Label htmlFor="save-as-name">Report name</Label>
@@ -661,25 +672,29 @@ export default function ReportEditorPage() {
                 onChange={e => setSaveAsName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !isElectron) commitSaveAs(); }}
                 autoFocus
+                className="w-full"
                 data-testid="input-save-as-name"
               />
             </div>
 
             {/* File location — Electron only */}
             {isElectron ? (
-              <div className="space-y-1.5">
-                <Label htmlFor="save-as-location">Save location</Label>
-                {/* Path display — full width, truncated, no overflow */}
-                <div className="w-full min-w-0 px-3 py-2 rounded-md border border-input bg-muted/40 text-xs text-muted-foreground truncate"
-                  id="save-as-location"
+              <div className="space-y-2">
+                <Label>Save location</Label>
+
+                {/* Path pill — block-level, overflow hidden, never wider than parent */}
+                <div
+                  className="w-full rounded-md border border-input bg-muted/40 px-3 py-2 text-xs text-muted-foreground"
+                  style={{ overflowX: "hidden", textOverflow: "ellipsis", whiteSpace: "nowrap" }}
                   title={saveAsLocation || ""}
                   data-testid="input-save-as-location"
                 >
                   {saveAsLocation || (
-                    <span className="italic opacity-60">No location selected — click Browse to choose a folder and filename</span>
+                    <span className="italic opacity-60">Not selected — click Browse to pick folder &amp; filename</span>
                   )}
                 </div>
-                {/* Browse button on its own row — never clipped */}
+
+                {/* Browse on its own row so it's never pushed off-screen */}
                 <Button
                   type="button"
                   variant="outline"
@@ -692,30 +707,38 @@ export default function ReportEditorPage() {
                   <FolderOpen className="w-3.5 h-3.5" />
                   Browse…
                 </Button>
+
                 <p className="text-xs text-muted-foreground">
                   {saveAsLocation
-                    ? "The report will be saved to the selected path."
-                    : "Optional — if skipped, the report is saved in the app only."}
+                    ? "File will be written to the selected path."
+                    : "Optional — skip to save in the app database only."}
                 </p>
               </div>
             ) : (
-              <div className="p-3 bg-muted/50 rounded-md">
+              <div className="rounded-md bg-muted/50 px-3 py-2">
                 <p className="text-xs text-muted-foreground">
-                  Running in browser — the report is saved in the app database. Use <strong>Export</strong> after saving to download a file.
+                  Running in browser — report saved in app database. Use <strong>Export</strong> after saving to download a file.
                 </p>
               </div>
             )}
           </div>
 
-          {/* Footer — always visible, never clipped */}
-          <DialogFooter className="mt-2 pt-4 border-t border-border">
-            <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saveAsWorking}>
+          {/* Footer — pinned below body, never clipped */}
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-border flex-shrink-0">
+            <Button
+              variant="outline"
+              onClick={() => setShowSaveAs(false)}
+              disabled={saveAsWorking}
+            >
               Cancel
             </Button>
-            <Button onClick={commitSaveAs} disabled={!saveAsName.trim() || saveAsWorking}>
+            <Button
+              onClick={commitSaveAs}
+              disabled={!saveAsName.trim() || saveAsWorking}
+            >
               {saveAsWorking ? "Saving…" : "Save"}
             </Button>
-          </DialogFooter>
+          </div>
         </DialogContent>
       </Dialog>
     </div>
