@@ -1,4 +1,4 @@
-import { useState, useEffect, useCallback } from "react";
+import { useState, useEffect, useCallback, useRef } from "react";
 import { useLocation, useParams } from "wouter";
 import { useQuery, useMutation } from "@tanstack/react-query";
 import { queryClient, apiRequest } from "@/lib/queryClient";
@@ -10,6 +10,7 @@ import { Card } from "@/components/ui/card";
 import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import CategoryManagerDialog from "@/components/CategoryManagerDialog";
@@ -17,7 +18,7 @@ import type { ExpenseReport, ExpenseItem, Category } from "@shared/schema";
 import {
   ArrowLeft, Plus, Trash2, Save, FileDown, Printer, FolderOpen,
   Moon, Sun, Receipt, Plane, Calendar, Settings2, DollarSign,
-  AlertCircle
+  AlertCircle, FilePlus
 } from "lucide-react";
 
 const MILEAGE_RATE = 0.725; // 2026 IRS rate
@@ -61,6 +62,9 @@ export default function ReportEditorPage() {
   const [items, setItems] = useState<ItemRow[]>([]);
   const [savedReportId, setSavedReportId] = useState<number | null>(reportId);
   const [showCategoryMgr, setShowCategoryMgr] = useState(false);
+  const [showSaveAs, setShowSaveAs] = useState(false);
+  const [saveAsName, setSaveAsName] = useState("");
+  const [saveAsWorking, setSaveAsWorking] = useState(false);
   const [exchangeRateCache, setExchangeRateCache] = useState<Record<string, number>>({ USD: 1 });
   const [fetchingRates, setFetchingRates] = useState<Record<string, boolean>>({});
 
@@ -160,17 +164,24 @@ export default function ReportEditorPage() {
     }
   };
 
-  const handleSaveAs = async () => {
-    const name = window.prompt("Save as:", reportMeta.name || "Untitled Report");
-    if (name === null) return; // cancelled
-    if (!name.trim()) return;  // empty string
+  // Open the Save As dialog — pre-fill with current report name
+  const openSaveAs = () => {
+    setSaveAsName(reportMeta.name || "Untitled Report");
+    setShowSaveAs(true);
+  };
+
+  const commitSaveAs = async () => {
+    const name = saveAsName.trim();
+    if (!name) return;
+    setSaveAsWorking(true);
     try {
-      // Always create a NEW report — never overwrite the current one.
-      const created = await createReport.mutateAsync({ ...reportMeta, id: undefined, name: name.trim() });
+      // Always POST a brand-new report — never overwrite the current one
+      const { id: _rid, ...metaWithoutId } = reportMeta as any;
+      const created = await createReport.mutateAsync({ ...metaWithoutId, name });
       const newId = created.id;
 
-      // Copy all current items (strip existing ids so the server assigns new ones)
-      const itemsToCopy = items.map(({ id: _id, _tempId: _t, ...rest }) => rest);
+      // Copy all current items — strip ids and _tempId so the server assigns fresh ones
+      const itemsToCopy = items.map(({ id: _id, _tempId: _t, reportId: _r, ...rest }) => rest);
       await saveItems(newId, itemsToCopy);
 
       // Reload items to get their new server-assigned ids
@@ -179,13 +190,16 @@ export default function ReportEditorPage() {
 
       // Switch the editor to the new report
       setSavedReportId(newId);
-      setReportMeta(m => ({ ...m, id: newId, name: name.trim() }));
+      setReportMeta(m => ({ ...m, id: newId, name }));
       setItems(savedItems.map((i: ExpenseItem) => ({ ...i, _dirty: false })));
+      setShowSaveAs(false);
       navigate(`/report/${newId}`, { replace: true });
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-      toast({ title: "Saved as new report", description: name.trim() });
+      toast({ title: "Saved as new report", description: name });
     } catch {
       toast({ title: "Save As failed", variant: "destructive" });
+    } finally {
+      setSaveAsWorking(false);
     }
   };
 
@@ -347,13 +361,16 @@ export default function ReportEditorPage() {
 
           {/* File menu */}
           <div className="flex items-center gap-1.5 flex-wrap">
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => navigate("/")} data-testid="button-new-report">
+              <FilePlus className="w-3.5 h-3.5" />New
+            </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={handleOpenFile} data-testid="button-file-open">
               <FolderOpen className="w-3.5 h-3.5" />Open
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => handleSave()} data-testid="button-file-save">
               <Save className="w-3.5 h-3.5" />Save
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={handleSaveAs} data-testid="button-file-saveas">
+            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={openSaveAs} data-testid="button-file-saveas">
               <Save className="w-3.5 h-3.5" />Save As…
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={handleExportFile} data-testid="button-file-export">
@@ -400,13 +417,23 @@ export default function ReportEditorPage() {
             </div>
             <div>
               <Label htmlFor="date-submitted">Date Submitted</Label>
-              <Input
-                id="date-submitted"
-                type="date"
-                value={reportMeta.dateSubmitted ?? ""}
-                onChange={e => setReportMeta(m => ({ ...m, dateSubmitted: e.target.value }))}
-                data-testid="input-date-submitted"
-              />
+              {reportMeta.dateSubmitted ? (
+                <Input
+                  id="date-submitted"
+                  type="date"
+                  value={reportMeta.dateSubmitted}
+                  onChange={e => setReportMeta(m => ({ ...m, dateSubmitted: e.target.value }))}
+                  data-testid="input-date-submitted"
+                />
+              ) : (
+                <div
+                  id="date-submitted"
+                  className="flex h-10 w-full rounded-md border border-input bg-background px-3 py-2 text-sm text-muted-foreground items-center"
+                  data-testid="input-date-submitted"
+                >
+                  Auto-filled on Complete
+                </div>
+              )}
             </div>
             <div>
               <Label htmlFor="status">Status</Label>
@@ -468,8 +495,8 @@ export default function ReportEditorPage() {
               {/* Column headers */}
               <div className={`grid gap-2 px-3 text-xs font-medium text-muted-foreground ${
                 rType === "travel"
-                  ? "grid-cols-[120px_1fr_150px_80px_110px_100px_80px_32px]"
-                  : "grid-cols-[120px_1fr_150px_80px_110px_100px_32px]"
+                  ? "grid-cols-[148px_1fr_150px_80px_110px_100px_80px_32px]"
+                  : "grid-cols-[148px_1fr_150px_80px_110px_100px_32px]"
               }`}>
                 <span>Date</span>
                 <span>Purpose</span>
@@ -553,6 +580,33 @@ export default function ReportEditorPage() {
         onOpenChange={setShowCategoryMgr}
         reportType={rType}
       />
+
+      {/* Save As dialog — uses a proper modal instead of window.prompt (blocked in Electron) */}
+      <Dialog open={showSaveAs} onOpenChange={setShowSaveAs}>
+        <DialogContent className="sm:max-w-sm">
+          <DialogHeader>
+            <DialogTitle>Save As New Report</DialogTitle>
+          </DialogHeader>
+          <div className="py-2">
+            <Label htmlFor="save-as-name">Report name</Label>
+            <Input
+              id="save-as-name"
+              value={saveAsName}
+              onChange={e => setSaveAsName(e.target.value)}
+              onKeyDown={e => { if (e.key === "Enter") commitSaveAs(); }}
+              autoFocus
+              className="mt-1"
+              data-testid="input-save-as-name"
+            />
+          </div>
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saveAsWorking}>Cancel</Button>
+            <Button onClick={commitSaveAs} disabled={!saveAsName.trim() || saveAsWorking}>
+              {saveAsWorking ? "Saving…" : "Save"}
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 }
@@ -570,10 +624,15 @@ function ItemRowComponent({
   onCurrencyChange: (code: string) => void;
 }) {
   const isMileage = item.category === "Mileage Reimbursement";
+  const dateInputRef = useRef<HTMLInputElement>(null);
 
   // Auto-switch isMileage when category changes
   const handleCategoryChange = (val: string) => {
     onUpdate({ category: val, isMileage: val === "Mileage Reimbursement" });
+  };
+
+  const openDatePicker = () => {
+    try { dateInputRef.current?.showPicker(); } catch { dateInputRef.current?.focus(); }
   };
 
   return (
@@ -581,8 +640,8 @@ function ItemRowComponent({
       item.billedToCard ? "opacity-75 bg-blue-50/50 dark:bg-blue-950/20" : ""
     } ${
       rType === "travel"
-        ? "grid-cols-[120px_1fr_150px_80px_110px_100px_80px_32px]"
-        : "grid-cols-[120px_1fr_150px_80px_110px_100px_32px]"
+        ? "grid-cols-[148px_1fr_150px_80px_110px_100px_80px_32px]"
+        : "grid-cols-[148px_1fr_150px_80px_110px_100px_32px]"
     }`} data-testid={`row-item-${idx}`}>
       {/* Date / Prepaid — travel reports can mark an item as prepaid instead of choosing a date */}
       {rType === "travel" ? (
@@ -597,13 +656,26 @@ function ItemRowComponent({
               Prepaid
             </div>
           ) : (
-            <Input
-              type="date"
-              value={item.date ?? ""}
-              onChange={e => onUpdate({ date: e.target.value })}
-              className="h-8 text-xs"
-              data-testid={`input-date-${idx}`}
-            />
+            <div className="flex items-center gap-1">
+              <input
+                ref={dateInputRef}
+                type="date"
+                value={item.date ?? ""}
+                onChange={e => onUpdate({ date: e.target.value })}
+                className="flex-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring min-w-0"
+                data-testid={`input-date-${idx}`}
+              />
+              <button
+                type="button"
+                onClick={openDatePicker}
+                className="h-8 w-8 flex items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
+                title="Pick a date"
+                tabIndex={-1}
+                data-testid={`button-date-picker-${idx}`}
+              >
+                <Calendar className="w-3.5 h-3.5" />
+              </button>
+            </div>
           )}
           <label className="flex items-center gap-1 cursor-pointer select-none" title="Mark as prepaid — no reimbursement date needed">
             <Checkbox
@@ -616,13 +688,26 @@ function ItemRowComponent({
           </label>
         </div>
       ) : (
-        <Input
-          type="date"
-          value={item.date ?? ""}
-          onChange={e => onUpdate({ date: e.target.value })}
-          className="h-8 text-xs"
-          data-testid={`input-date-${idx}`}
-        />
+        <div className="flex items-center gap-1">
+          <input
+            ref={dateInputRef}
+            type="date"
+            value={item.date ?? ""}
+            onChange={e => onUpdate({ date: e.target.value })}
+            className="flex-1 h-8 rounded-md border border-input bg-background px-2 text-xs text-foreground focus:outline-none focus:ring-1 focus:ring-ring min-w-0"
+            data-testid={`input-date-${idx}`}
+          />
+          <button
+            type="button"
+            onClick={openDatePicker}
+            className="h-8 w-8 flex items-center justify-center rounded-md border border-input bg-background text-muted-foreground hover:text-foreground hover:bg-accent transition-colors flex-shrink-0"
+            title="Pick a date"
+            tabIndex={-1}
+            data-testid={`button-date-picker-${idx}`}
+          >
+            <Calendar className="w-3.5 h-3.5" />
+          </button>
+        </div>
       )}
       <Input
         value={item.purpose ?? ""}
