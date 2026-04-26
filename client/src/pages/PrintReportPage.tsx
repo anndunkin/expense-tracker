@@ -3,6 +3,7 @@ import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
 import { Button } from "@/components/ui/button";
 import type { ExpenseReport, ExpenseItem } from "@shared/schema";
+import { SETTINGS_KEYS } from "@shared/schema";
 import { ArrowLeft, Printer } from "lucide-react";
 
 const MILEAGE_RATE = 0.725;
@@ -16,6 +17,14 @@ export default function PrintReportPage() {
     queryKey: ["/api/reports", id],
     queryFn: async () => {
       const res = await apiRequest("GET", `/api/reports/${id}`);
+      return res.json();
+    },
+  });
+
+  const { data: settings = {} as Record<string, string> } = useQuery<Record<string, string>>({
+    queryKey: ["/api/settings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/settings");
       return res.json();
     },
   });
@@ -64,7 +73,10 @@ export default function PrintReportPage() {
         <div className="flex items-start justify-between mb-6 pb-4 border-b-2 border-gray-800">
           <div>
             <h1 className="text-2xl font-bold text-gray-900">
-              {isTravel ? "Travel" : "Monthly"} Expense Report
+              {isTravel
+                ? (settings[SETTINGS_KEYS.TRAVEL_HEADER] || "Travel Expense Report")
+                : (settings[SETTINGS_KEYS.MONTHLY_HEADER] || "Monthly Expense Report")
+              }
             </h1>
             <p className="text-gray-600 mt-0.5">{report.name}</p>
           </div>

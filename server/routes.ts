@@ -169,6 +169,25 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     res.json({ report: newReport, items: savedItems });
   });
 
+
+  // ─── App Settings ────────────────────────────────────────────────────────────
+  app.get("/api/settings", (_req, res) => {
+    res.json(storage.getSettings());
+  });
+
+  app.patch("/api/settings", (req, res) => {
+    const patch = req.body as Record<string, string>;
+    if (typeof patch !== "object" || patch === null || Array.isArray(patch)) {
+      return res.status(400).json({ error: "Body must be a JSON object of key/value strings" });
+    }
+    for (const [k, v] of Object.entries(patch)) {
+      if (typeof v !== "string") {
+        return res.status(400).json({ error: `Value for key "${k}" must be a string` });
+      }
+    }
+    res.json(storage.setSettings(patch));
+  });
+
   // ─── Method Not Allowed catch-all for /api/* ────────────────────────────
   // Must be LAST — catches any method not explicitly registered above.
   // Prevents unregistered HTTP methods from falling through to the Vite

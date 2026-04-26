@@ -64,7 +64,11 @@ export default function ReportEditorPage() {
   const [showCategoryMgr, setShowCategoryMgr] = useState(false);
   const [showSaveAs, setShowSaveAs] = useState(false);
   const [saveAsName, setSaveAsName] = useState("");
+  const [saveAsLocation, setSaveAsLocation] = useState(""); // full file path (Electron only)
   const [saveAsWorking, setSaveAsWorking] = useState(false);
+
+  // Detect if running inside Electron (preload exposes window.electronAPI)
+  const isElectron = typeof window !== "undefined" && !!(window as any).electronAPI;
   const [exchangeRateCache, setExchangeRateCache] = useState<Record<string, number>>({ USD: 1 });
   const [fetchingRates, setFetchingRates] = useState<Record<string, boolean>>({});
 
@@ -164,10 +168,35 @@ export default function ReportEditorPage() {
     }
   };
 
-  // Open the Save As dialog — pre-fill with current report name
+  // Open the Save As dialog — pre-fill name; derive a default file path
   const openSaveAs = () => {
-    setSaveAsName(reportMeta.name || "Untitled Report");
+    const baseName = reportMeta.name || "Untitled Report";
+    setSaveAsName(baseName);
+    // Default location: home directory on web (shown as hint), proper path on Electron
+    setSaveAsLocation("");
     setShowSaveAs(true);
+  };
+
+  // Browse for a save location using Electron's native dialog
+  const browseSaveLocation = async () => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) return;
+    const safeName = (saveAsName.trim() || "Untitled Report").replace(/[^a-z0-9\-_ ]/gi, "-");
+    const result = await electronAPI.showSaveDialog({
+      title: "Choose where to save the report",
+      defaultPath: safeName + ".expense",
+      filters: [
+        { name: "Expense Reports", extensions: ["expense"] },
+        { name: "JSON Files", extensions: ["json"] },
+      ],
+    });
+    if (!result.canceled && result.filePath) {
+      setSaveAsLocation(result.filePath);
+      // Auto-fill report name from chosen filename (strip extension)
+      const base = result.filePath.split(/[\\/]/).pop() ?? "";
+      const nameFromPath = base.replace(/\.(expense|json)$/i, "");
+      if (nameFromPath) setSaveAsName(nameFromPath);
+    }
   };
 
   const commitSaveAs = async () => {
@@ -188,14 +217,31 @@ export default function ReportEditorPage() {
       const res = await apiRequest("GET", `/api/reports/${newId}/items`);
       const savedItems = await res.json();
 
+      // If Electron and a location was chosen, also write the .expense file to disk
+      const electronAPI = (window as any).electronAPI;
+      if (electronAPI && saveAsLocation) {
+        const exportData = { report: { ...metaWithoutId, id: newId, name }, items: itemsToCopy };
+        const writeResult = await electronAPI.writeFile(
+          saveAsLocation,
+          JSON.stringify(exportData, null, 2)
+        );
+        if (writeResult.error) {
+          toast({ title: "File saved in app but disk write failed", description: writeResult.error, variant: "destructive" });
+        }
+      }
+
       // Switch the editor to the new report
       setSavedReportId(newId);
       setReportMeta(m => ({ ...m, id: newId, name }));
       setItems(savedItems.map((i: ExpenseItem) => ({ ...i, _dirty: false })));
       setShowSaveAs(false);
+      setSaveAsLocation("");
       navigate(`/report/${newId}`, { replace: true });
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
-      toast({ title: "Saved as new report", description: name });
+      toast({
+        title: "Saved as new report",
+        description: saveAsLocation ? `${name} → ${saveAsLocation}` : name,
+      });
     } catch {
       toast({ title: "Save As failed", variant: "destructive" });
     } finally {
@@ -583,21 +629,64 @@ export default function ReportEditorPage() {
 
       {/* Save As dialog — uses a proper modal instead of window.prompt (blocked in Electron) */}
       <Dialog open={showSaveAs} onOpenChange={setShowSaveAs}>
-        <DialogContent className="sm:max-w-sm">
+        <DialogContent className="sm:max-w-md">
           <DialogHeader>
             <DialogTitle>Save As New Report</DialogTitle>
           </DialogHeader>
-          <div className="py-2">
-            <Label htmlFor="save-as-name">Report name</Label>
-            <Input
-              id="save-as-name"
-              value={saveAsName}
-              onChange={e => setSaveAsName(e.target.value)}
-              onKeyDown={e => { if (e.key === "Enter") commitSaveAs(); }}
-              autoFocus
-              className="mt-1"
-              data-testid="input-save-as-name"
-            />
+          <div className="space-y-4 py-2">
+            <div>
+              <Label htmlFor="save-as-name">Report name</Label>
+              <Input
+                id="save-as-name"
+                value={saveAsName}
+                onChange={e => setSaveAsName(e.target.value)}
+                onKeyDown={e => { if (e.key === "Enter" && !isElectron) commitSaveAs(); }}
+                autoFocus
+                className="mt-1"
+                data-testid="input-save-as-name"
+              />
+            </div>
+
+            {/* File location — Electron only */}
+            {isElectron ? (
+              <div>
+                <Label htmlFor="save-as-location">Save location</Label>
+                <div className="flex gap-2 mt-1">
+                  <Input
+                    id="save-as-location"
+                    value={saveAsLocation}
+                    readOnly
+                    placeholder="Click Browse to choose a folder and filename…"
+                    className="text-xs text-muted-foreground flex-1"
+                    data-testid="input-save-as-location"
+                  />
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={browseSaveLocation}
+                    disabled={saveAsWorking}
+                    data-testid="button-browse-location"
+                  >
+                    Browse…
+                  </Button>
+                </div>
+                {saveAsLocation && (
+                  <p className="text-xs text-muted-foreground mt-1 truncate">{saveAsLocation}</p>
+                )}
+                {!saveAsLocation && (
+                  <p className="text-xs text-muted-foreground mt-1">
+                    Optional — if no location is chosen, the report is saved in the app only.
+                  </p>
+                )}
+              </div>
+            ) : (
+              <div className="p-3 bg-muted/50 rounded-md">
+                <p className="text-xs text-muted-foreground">
+                  Running in browser — the report is saved in the app database. To export to a file, use the <strong>Export</strong> button after saving.
+                </p>
+              </div>
+            )}
           </div>
           <DialogFooter>
             <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saveAsWorking}>Cancel</Button>

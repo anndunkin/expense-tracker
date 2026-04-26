@@ -102,6 +102,25 @@ export const insertCategorySchema = createInsertSchema(categories).omit({ id: tr
 export type InsertCategory = z.infer<typeof insertCategorySchema>;
 export type Category = typeof categories.$inferSelect;
 
+// ─── App Settings (key/value store) ────────────────────────────────────────
+export const appSettings = sqliteTable("app_settings", {
+  key: text("key").primaryKey(),
+  value: text("value").notNull(),
+});
+
+export type AppSetting = typeof appSettings.$inferSelect;
+
+// Well-known setting keys
+export const SETTINGS_KEYS = {
+  MONTHLY_HEADER: "monthlyReportHeader",
+  TRAVEL_HEADER: "travelReportHeader",
+} as const;
+
+export const DEFAULT_SETTINGS: Record<string, string> = {
+  [SETTINGS_KEYS.MONTHLY_HEADER]: "Monthly Expense Report",
+  [SETTINGS_KEYS.TRAVEL_HEADER]: "Travel Expense Report",
+};
+
 // ─── Exchange Rate Cache ─────────────────────────────────────────────────────
 export const exchangeRates = sqliteTable("exchange_rates", {
   id: integer("id").primaryKey({ autoIncrement: true }),

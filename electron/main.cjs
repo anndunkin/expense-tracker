@@ -1,4 +1,4 @@
-const { app, BrowserWindow, shell, Menu, dialog } = require("electron");
+const { app, BrowserWindow, shell, Menu, dialog, ipcMain } = require("electron");
 const path = require("path");
 const http = require("http");
 const fs = require("fs");
@@ -78,7 +78,11 @@ function createWindow() {
     title: "Expense Track",
     icon: path.join(__dirname, "icon.png"),
     backgroundColor: "#f5f7fa",
-    webPreferences: { nodeIntegration: false, contextIsolation: true },
+    webPreferences: {
+      nodeIntegration: false,
+      contextIsolation: true,
+      preload: path.join(__dirname, "preload.cjs"),
+    },
     show: false,
   });
   mainWindow.loadURL(`http://localhost:${PORT}`);
@@ -139,6 +143,31 @@ function buildMenu() {
   ];
   Menu.setApplicationMenu(Menu.buildFromTemplate(template));
 }
+
+// ─── IPC Handlers ────────────────────────────────────────────────────────────
+ipcMain.handle("show-save-dialog", async (_event, opts = {}) => {
+  if (!mainWindow) return { canceled: true };
+  const result = await dialog.showSaveDialog(mainWindow, {
+    title: opts.title || "Save Expense Report",
+    defaultPath: opts.defaultPath || undefined,
+    filters: opts.filters || [
+      { name: "Expense Reports", extensions: ["expense"] },
+      { name: "JSON Files", extensions: ["json"] },
+      { name: "All Files", extensions: ["*"] },
+    ],
+    properties: ["createDirectory", "showOverwriteConfirmation"],
+  });
+  return result; // { canceled, filePath }
+});
+
+ipcMain.handle("write-file", async (_event, { filePath, content }) => {
+  try {
+    fs.writeFileSync(filePath, content, "utf8");
+    return { ok: true };
+  } catch (err) {
+    return { error: err.message };
+  }
+});
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────────
 app.whenReady().then(async () => {

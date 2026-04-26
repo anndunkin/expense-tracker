@@ -10,7 +10,7 @@ import { useToast } from "@/hooks/use-toast";
 import type { ExpenseReport } from "@shared/schema";
 import {
   FileText, Plus, FolderOpen, Trash2, Moon, Sun, Receipt,
-  Plane, Calendar, ChevronRight
+  Plane, Calendar, ChevronRight, Settings2
 } from "lucide-react";
 import {
   AlertDialog, AlertDialogAction, AlertDialogCancel,
@@ -75,14 +75,25 @@ export default function HomePage() {
               <p className="text-xs text-muted-foreground mt-0.5">Expense Reporting System</p>
             </div>
           </div>
-          <button
-            onClick={toggle}
-            className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
-            aria-label="Toggle theme"
-            data-testid="button-theme-toggle"
-          >
-            {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
-          </button>
+          <div className="flex items-center gap-1">
+            <button
+              onClick={() => navigate("/settings")}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              aria-label="Settings"
+              data-testid="button-settings"
+              title="Settings"
+            >
+              <Settings2 className="w-4 h-4" />
+            </button>
+            <button
+              onClick={toggle}
+              className="p-2 rounded-md text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
+              aria-label="Toggle theme"
+              data-testid="button-theme-toggle"
+            >
+              {theme === "dark" ? <Sun className="w-4 h-4" /> : <Moon className="w-4 h-4" />}
+            </button>
+          </div>
         </div>
       </header>
 

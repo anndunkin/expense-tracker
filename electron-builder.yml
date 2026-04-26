@@ -13,6 +13,7 @@ files:
   # Only the Electron main process files — no node_modules.
   # All server dependencies are bundled into server/index.cjs by esbuild.
   - electron/main.cjs
+  - electron/preload.cjs
   - electron/icon.png
   - package.json
   # Explicitly exclude everything else

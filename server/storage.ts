@@ -4,11 +4,12 @@ import { eq, and } from "drizzle-orm";
 import path from "path";
 import fs from "fs";
 import {
-  expenseReports, expenseItems, categories, exchangeRates,
+  expenseReports, expenseItems, categories, exchangeRates, appSettings,
   type ExpenseReport, type InsertExpenseReport,
   type ExpenseItem, type InsertExpenseItem,
   type Category, type InsertCategory,
   type ExchangeRate, type InsertExchangeRate,
+  type AppSetting, DEFAULT_SETTINGS,
 } from "@shared/schema";
 
 // DATA_DIR is set by Electron main process to %APPDATA%/ExpenseTrack
@@ -68,6 +69,11 @@ sqlite.exec(`
     rate_to_usd REAL NOT NULL,
     updated_at TEXT NOT NULL
   );
+
+  CREATE TABLE IF NOT EXISTS app_settings (
+    key TEXT PRIMARY KEY,
+    value TEXT NOT NULL
+  );
 `);
 
 // Seed default categories if none exist
@@ -117,6 +123,12 @@ export interface IStorage {
   // Exchange rates
   getExchangeRate(code: string): ExchangeRate | undefined;
   upsertExchangeRate(data: InsertExchangeRate): ExchangeRate;
+
+  // App settings
+  getSettings(): Record<string, string>;
+  getSetting(key: string): string;
+  setSetting(key: string, value: string): AppSetting;
+  setSettings(patch: Record<string, string>): Record<string, string>;
 }
 
 class SQLiteStorage implements IStorage {
@@ -185,6 +197,31 @@ class SQLiteStorage implements IStorage {
       return db.update(exchangeRates).set(data).where(eq(exchangeRates.currencyCode, data.currencyCode)).returning().get()!;
     }
     return db.insert(exchangeRates).values(data).returning().get();
+  }
+
+  // App settings
+  getSettings(): Record<string, string> {
+    const rows = db.select().from(appSettings).all();
+    const result: Record<string, string> = { ...DEFAULT_SETTINGS };
+    for (const row of rows) result[row.key] = row.value;
+    return result;
+  }
+  getSetting(key: string): string {
+    const row = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+    return row?.value ?? DEFAULT_SETTINGS[key] ?? "";
+  }
+  setSetting(key: string, value: string): AppSetting {
+    const existing = db.select().from(appSettings).where(eq(appSettings.key, key)).get();
+    if (existing) {
+      return db.update(appSettings).set({ value }).where(eq(appSettings.key, key)).returning().get()!;
+    }
+    return db.insert(appSettings).values({ key, value }).returning().get();
+  }
+  setSettings(patch: Record<string, string>): Record<string, string> {
+    for (const [key, value] of Object.entries(patch)) {
+      this.setSetting(key, value);
+    }
+    return this.getSettings();
   }
 }
 
