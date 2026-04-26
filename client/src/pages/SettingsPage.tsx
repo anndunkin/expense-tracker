@@ -14,7 +14,7 @@ import type { Category } from "@shared/schema";
 import { SETTINGS_KEYS } from "@shared/schema";
 import {
   ArrowLeft, Moon, Sun, Plus, Trash2, GripVertical,
-  Receipt, Plane, Settings2, Type,
+  Receipt, Plane, Settings2, Type, FolderOpen,
 } from "lucide-react";
 
 export default function SettingsPage() {
@@ -34,6 +34,11 @@ export default function SettingsPage() {
   const [monthlyHeader, setMonthlyHeader] = useState("");
   const [travelHeader, setTravelHeader] = useState("");
   const [headersDirty, setHeadersDirty] = useState(false);
+  const [defaultSaveLocation, setDefaultSaveLocation] = useState("");
+  const [locationDirty, setLocationDirty] = useState(false);
+
+  // Detect if running in Electron
+  const isElectron = !!(window as any).electronAPI;
 
   // Seed state from server data once loaded
   useEffect(() => {
@@ -42,6 +47,9 @@ export default function SettingsPage() {
     }
     if (settings[SETTINGS_KEYS.TRAVEL_HEADER] !== undefined) {
       setTravelHeader(settings[SETTINGS_KEYS.TRAVEL_HEADER]);
+    }
+    if (settings[SETTINGS_KEYS.DEFAULT_SAVE_LOCATION] !== undefined) {
+      setDefaultSaveLocation(settings[SETTINGS_KEYS.DEFAULT_SAVE_LOCATION]);
     }
   }, [settings]);
 
@@ -60,6 +68,34 @@ export default function SettingsPage() {
     },
     onError: () => toast({ title: "Failed to save headers", variant: "destructive" }),
   });
+
+  const saveLocationMutation = useMutation({
+    mutationFn: async () => {
+      const res = await apiRequest("PATCH", "/api/settings", {
+        [SETTINGS_KEYS.DEFAULT_SAVE_LOCATION]: defaultSaveLocation,
+      });
+      return res.json();
+    },
+    onSuccess: () => {
+      queryClient.invalidateQueries({ queryKey: ["/api/settings"] });
+      setLocationDirty(false);
+      toast({ title: "Default save location updated" });
+    },
+    onError: () => toast({ title: "Failed to save location", variant: "destructive" }),
+  });
+
+  const browseDefaultLocation = async () => {
+    const electronAPI = (window as any).electronAPI;
+    if (!electronAPI) return;
+    const result = await electronAPI.showOpenDialog({
+      title: "Choose default save folder",
+      defaultPath: defaultSaveLocation || undefined,
+    });
+    if (!result.canceled && result.filePath) {
+      setDefaultSaveLocation(result.filePath);
+      setLocationDirty(true);
+    }
+  };
 
   // ─── Category management ───────────────────────────────────────────────────
   return (
@@ -133,13 +169,13 @@ export default function SettingsPage() {
             <Button
               size="sm"
               onClick={() => saveHeadersMutation.mutate()}
-              disabled={!headersDirty || saveHeadersMutation.isPending}
+              disabled={saveHeadersMutation.isPending}
               data-testid="button-save-headers"
             >
               {saveHeadersMutation.isPending ? "Saving…" : "Save Headers"}
             </Button>
             {!headersDirty && !saveHeadersMutation.isPending && (
-              <span className="text-xs text-muted-foreground">Up to date</span>
+              <span className="text-xs text-muted-foreground">Click Save to apply changes</span>
             )}
           </div>
 
@@ -148,6 +184,63 @@ export default function SettingsPage() {
             <strong>Preview — Travel:</strong> {travelHeader || "Travel Expense Report"}
           </div>
         </Card>
+
+        {/* ─── Default Save Location (Electron only) ────────────────── */}
+        {isElectron && (
+          <Card className="p-6">
+            <div className="flex items-center gap-2 mb-1">
+              <FolderOpen className="w-4 h-4 text-muted-foreground" />
+              <h2 className="text-sm font-semibold text-foreground">Default Save Location</h2>
+            </div>
+            <p className="text-xs text-muted-foreground mb-4">
+              When you use Save As, the file dialog will open in this folder by default.
+            </p>
+
+            <div className="space-y-2">
+              <Label htmlFor="default-save-location">Default folder</Label>
+              <div className="flex gap-2">
+                <Input
+                  id="default-save-location"
+                  value={defaultSaveLocation}
+                  onChange={e => { setDefaultSaveLocation(e.target.value); setLocationDirty(true); }}
+                  placeholder="(system default Documents folder)"
+                  className="text-sm flex-1 min-w-0"
+                  data-testid="input-default-save-location"
+                />
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={browseDefaultLocation}
+                  className="flex-shrink-0 gap-1.5"
+                  data-testid="button-browse-default-location"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  Browse…
+                </Button>
+              </div>
+              {defaultSaveLocation && (
+                <p className="text-xs text-muted-foreground truncate" title={defaultSaveLocation}>
+                  {defaultSaveLocation}
+                </p>
+              )}
+            </div>
+
+            <div className="mt-4 flex items-center gap-3">
+              <Button
+                size="sm"
+                onClick={() => saveLocationMutation.mutate()}
+                disabled={!locationDirty || saveLocationMutation.isPending}
+                data-testid="button-save-location"
+              >
+                {saveLocationMutation.isPending ? "Saving…" : "Save Location"}
+              </Button>
+              {!locationDirty && !saveLocationMutation.isPending && defaultSaveLocation && (
+                <span className="text-xs text-muted-foreground">Saved</span>
+              )}
+            </div>
+          </Card>
+        )}
 
         {/* ─── Category Management ──────────────────────────────────────── */}
         <Card className="p-6">

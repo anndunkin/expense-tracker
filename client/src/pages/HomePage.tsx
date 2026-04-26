@@ -173,6 +173,12 @@ export default function HomePage() {
                       {report.tripPurpose || "No purpose specified"}
                       {report.dateSubmitted && ` · ${report.dateSubmitted}`}
                     </p>
+                    {report.filePath && (
+                      <p className="text-xs text-muted-foreground/70 mt-0.5 flex items-center gap-1 min-w-0">
+                        <FolderOpen className="w-3 h-3 flex-shrink-0" />
+                        <span className="truncate" title={report.filePath}>{report.filePath}</span>
+                      </p>
+                    )}
                   </div>
                   <div className="flex items-center gap-1 opacity-0 group-hover:opacity-100 transition-opacity">
                     <button

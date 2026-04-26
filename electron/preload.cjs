@@ -7,6 +7,9 @@ contextBridge.exposeInMainWorld("electronAPI", {
   // Write a file to disk — returns { ok: true } or { error: string }
   writeFile: (filePath, content) => ipcRenderer.invoke("write-file", { filePath, content }),
 
+  // Show a native directory picker — returns { filePath: string } or { canceled: true }
+  showOpenDialog: (opts) => ipcRenderer.invoke("show-open-dialog", opts),
+
   // Check if running inside Electron
   isElectron: true,
 });

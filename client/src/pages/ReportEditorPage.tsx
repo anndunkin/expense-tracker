@@ -15,6 +15,7 @@ import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import CategoryManagerDialog from "@/components/CategoryManagerDialog";
 import type { ExpenseReport, ExpenseItem, Category } from "@shared/schema";
+import { SETTINGS_KEYS } from "@shared/schema";
 import {
   ArrowLeft, Plus, Trash2, Save, FileDown, Printer, FolderOpen,
   Moon, Sun, Receipt, Plane, Calendar, Settings2, DollarSign,
@@ -101,6 +102,15 @@ export default function ReportEditorPage() {
 
   const categoryNames = categories.map(c => c.name);
 
+  // App settings (for default save location)
+  const { data: appSettings = {} as Record<string, string> } = useQuery<Record<string, string>>({
+    queryKey: ["/api/settings"],
+    queryFn: async () => {
+      const res = await apiRequest("GET", "/api/settings");
+      return res.json();
+    },
+  });
+
   // Exchange rate fetch
   const fetchRate = useCallback(async (code: string) => {
     if (code === "USD" || exchangeRateCache[code] !== undefined || fetchingRates[code]) return;
@@ -168,23 +178,27 @@ export default function ReportEditorPage() {
     }
   };
 
-  // Open the Save As dialog — pre-fill name; derive a default file path
+  // Open the Save As dialog — pre-fill name and default location from settings
   const openSaveAs = () => {
     const baseName = reportMeta.name || "Untitled Report";
     setSaveAsName(baseName);
-    // Default location: home directory on web (shown as hint), proper path on Electron
+    // Pre-fill with the default save location from settings (if configured)
     setSaveAsLocation("");
     setShowSaveAs(true);
   };
 
-  // Browse for a save location using Electron's native dialog
+  // Browse for a save location using Electron's native Save dialog
   const browseSaveLocation = async () => {
     const electronAPI = (window as any).electronAPI;
     if (!electronAPI) return;
     const safeName = (saveAsName.trim() || "Untitled Report").replace(/[^a-z0-9\-_ ]/gi, "-");
+    const defaultDir = appSettings[SETTINGS_KEYS.DEFAULT_SAVE_LOCATION] || undefined;
+    const defaultPath = defaultDir
+      ? defaultDir.replace(/[\\/]+$/, "") + "/" + safeName + ".expense"
+      : safeName + ".expense";
     const result = await electronAPI.showSaveDialog({
       title: "Choose where to save the report",
-      defaultPath: safeName + ".expense",
+      defaultPath,
       filters: [
         { name: "Expense Reports", extensions: ["expense"] },
         { name: "JSON Files", extensions: ["json"] },
@@ -227,12 +241,15 @@ export default function ReportEditorPage() {
         );
         if (writeResult.error) {
           toast({ title: "File saved in app but disk write failed", description: writeResult.error, variant: "destructive" });
+        } else {
+          // PATCH the report record with the chosen filePath so it shows on HomePage
+          await apiRequest("PATCH", `/api/reports/${newId}`, { filePath: saveAsLocation });
         }
       }
 
       // Switch the editor to the new report
       setSavedReportId(newId);
-      setReportMeta(m => ({ ...m, id: newId, name }));
+      setReportMeta(m => ({ ...m, id: newId, name, filePath: saveAsLocation || "" }));
       setItems(savedItems.map((i: ExpenseItem) => ({ ...i, _dirty: false })));
       setShowSaveAs(false);
       setSaveAsLocation("");
@@ -628,13 +645,15 @@ export default function ReportEditorPage() {
       />
 
       {/* Save As dialog — uses a proper modal instead of window.prompt (blocked in Electron) */}
-      <Dialog open={showSaveAs} onOpenChange={setShowSaveAs}>
-        <DialogContent className="sm:max-w-md">
+      <Dialog open={showSaveAs} onOpenChange={v => !saveAsWorking && setShowSaveAs(v)}>
+        <DialogContent className="w-full max-w-lg">
           <DialogHeader>
             <DialogTitle>Save As New Report</DialogTitle>
           </DialogHeader>
-          <div className="space-y-4 py-2">
-            <div>
+
+          <div className="space-y-5 py-2">
+            {/* Report name */}
+            <div className="space-y-1.5">
               <Label htmlFor="save-as-name">Report name</Label>
               <Input
                 id="save-as-name"
@@ -642,54 +661,57 @@ export default function ReportEditorPage() {
                 onChange={e => setSaveAsName(e.target.value)}
                 onKeyDown={e => { if (e.key === "Enter" && !isElectron) commitSaveAs(); }}
                 autoFocus
-                className="mt-1"
                 data-testid="input-save-as-name"
               />
             </div>
 
             {/* File location — Electron only */}
             {isElectron ? (
-              <div>
+              <div className="space-y-1.5">
                 <Label htmlFor="save-as-location">Save location</Label>
-                <div className="flex gap-2 mt-1">
-                  <Input
-                    id="save-as-location"
-                    value={saveAsLocation}
-                    readOnly
-                    placeholder="Click Browse to choose a folder and filename…"
-                    className="text-xs text-muted-foreground flex-1"
-                    data-testid="input-save-as-location"
-                  />
-                  <Button
-                    type="button"
-                    variant="outline"
-                    size="sm"
-                    onClick={browseSaveLocation}
-                    disabled={saveAsWorking}
-                    data-testid="button-browse-location"
-                  >
-                    Browse…
-                  </Button>
+                {/* Path display — full width, truncated, no overflow */}
+                <div className="w-full min-w-0 px-3 py-2 rounded-md border border-input bg-muted/40 text-xs text-muted-foreground truncate"
+                  id="save-as-location"
+                  title={saveAsLocation || ""}
+                  data-testid="input-save-as-location"
+                >
+                  {saveAsLocation || (
+                    <span className="italic opacity-60">No location selected — click Browse to choose a folder and filename</span>
+                  )}
                 </div>
-                {saveAsLocation && (
-                  <p className="text-xs text-muted-foreground mt-1 truncate">{saveAsLocation}</p>
-                )}
-                {!saveAsLocation && (
-                  <p className="text-xs text-muted-foreground mt-1">
-                    Optional — if no location is chosen, the report is saved in the app only.
-                  </p>
-                )}
+                {/* Browse button on its own row — never clipped */}
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  onClick={browseSaveLocation}
+                  disabled={saveAsWorking}
+                  className="gap-1.5"
+                  data-testid="button-browse-location"
+                >
+                  <FolderOpen className="w-3.5 h-3.5" />
+                  Browse…
+                </Button>
+                <p className="text-xs text-muted-foreground">
+                  {saveAsLocation
+                    ? "The report will be saved to the selected path."
+                    : "Optional — if skipped, the report is saved in the app only."}
+                </p>
               </div>
             ) : (
               <div className="p-3 bg-muted/50 rounded-md">
                 <p className="text-xs text-muted-foreground">
-                  Running in browser — the report is saved in the app database. To export to a file, use the <strong>Export</strong> button after saving.
+                  Running in browser — the report is saved in the app database. Use <strong>Export</strong> after saving to download a file.
                 </p>
               </div>
             )}
           </div>
-          <DialogFooter>
-            <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saveAsWorking}>Cancel</Button>
+
+          {/* Footer — always visible, never clipped */}
+          <DialogFooter className="mt-2 pt-4 border-t border-border">
+            <Button variant="outline" onClick={() => setShowSaveAs(false)} disabled={saveAsWorking}>
+              Cancel
+            </Button>
             <Button onClick={commitSaveAs} disabled={!saveAsName.trim() || saveAsWorking}>
               {saveAsWorking ? "Saving…" : "Save"}
             </Button>

@@ -160,6 +160,17 @@ ipcMain.handle("show-save-dialog", async (_event, opts = {}) => {
   return result; // { canceled, filePath }
 });
 
+ipcMain.handle("show-open-dialog", async (_event, opts = {}) => {
+  if (!mainWindow) return { canceled: true };
+  const result = await dialog.showOpenDialog(mainWindow, {
+    title: opts.title || "Select Folder",
+    defaultPath: opts.defaultPath || undefined,
+    properties: ["openDirectory", "createDirectory"],
+  });
+  // returns { canceled, filePaths: string[] }
+  return { canceled: result.canceled, filePath: result.filePaths?.[0] ?? null };
+});
+
 ipcMain.handle("write-file", async (_event, { filePath, content }) => {
   try {
     fs.writeFileSync(filePath, content, "utf8");

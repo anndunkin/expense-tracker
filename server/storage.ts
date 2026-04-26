@@ -76,6 +76,10 @@ sqlite.exec(`
   );
 `);
 
+// ─── Column migrations (ALTER TABLE for new columns on existing DBs) ─────────
+// SQLite doesn't support IF NOT EXISTS on ALTER TABLE — use try/catch instead.
+try { sqlite.exec(`ALTER TABLE expense_reports ADD COLUMN file_path TEXT DEFAULT ''`); } catch { /* column already exists */ }
+
 // Seed default categories if none exist
 const existingCats = db.select().from(categories).all();
 if (existingCats.length === 0) {

@@ -11,6 +11,7 @@ export const expenseReports = sqliteTable("expense_reports", {
   tripPurpose: text("trip_purpose").notNull().default(""),
   dateSubmitted: text("date_submitted").notNull().default(""),
   status: text("status").notNull().default("draft"), // "draft" | "complete"
+  filePath: text("file_path").default(""), // last saved-to disk path (Electron only)
 });
 
 export const insertExpenseReportSchema = createInsertSchema(expenseReports).omit({ id: true });
@@ -114,11 +115,13 @@ export type AppSetting = typeof appSettings.$inferSelect;
 export const SETTINGS_KEYS = {
   MONTHLY_HEADER: "monthlyReportHeader",
   TRAVEL_HEADER: "travelReportHeader",
+  DEFAULT_SAVE_LOCATION: "defaultSaveLocation",
 } as const;
 
 export const DEFAULT_SETTINGS: Record<string, string> = {
   [SETTINGS_KEYS.MONTHLY_HEADER]: "Monthly Expense Report",
   [SETTINGS_KEYS.TRAVEL_HEADER]: "Travel Expense Report",
+  [SETTINGS_KEYS.DEFAULT_SAVE_LOCATION]: "", // empty = use OS default Documents folder
 };
 
 // ─── Exchange Rate Cache ─────────────────────────────────────────────────────
