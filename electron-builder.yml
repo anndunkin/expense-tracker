@@ -42,6 +42,9 @@ win:
       arch: [x64]
   icon: electron/icon.ico
   artifactName: "ExpenseTrack-${version}-Windows-x64.zip"
+  # Prevent electron-builder from running rcedit itself — our afterPack hook
+  # handles icon embedding explicitly via Wine+rcedit so the taskbar icon works.
+  signAndEditExecutable: false
   # Code signing — self-signed certificate
   # Publisher: Ann Dunkin / Dunkin Global Advisors
   # Certificate valid through April 2031
@@ -51,6 +54,10 @@ win:
   #
   # If CSC_LINK is not set, signing is skipped automatically (forceCodeSigning: false)
   forceCodeSigning: false
+
+# afterPack hook: embeds custom icon into the exe via rcedit+Wine so it shows
+# correctly on the Windows taskbar and in Explorer / Alt+Tab.
+afterPack: ./build/afterPack.cjs
 
 publish: null
 nodeGypRebuild: false
