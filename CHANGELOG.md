@@ -4,6 +4,18 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.0.4] — 2026-05-09
+
+### Fixed
+- **Hotfix for 1.0.3 — "better_sqlite3.node is not a valid Win32 application" startup error.** The 1.0.3 zip was built on a Linux host and inadvertently shipped the Linux x86_64 `better_sqlite3.node` shared object, which Windows cannot load. The Express server failed to start and the app showed a Startup Error dialog before any window appeared.
+
+### Changed
+- Vendored the official Windows x64 prebuild of `better-sqlite3` 12.9.0 for Electron 41 (Node ABI 145) at `build/native-win-x64/better_sqlite3.node`.
+- `electron-builder.yml` now bundles that vendored Windows binary instead of `node_modules/better-sqlite3/build/Release/better_sqlite3.node`, so the Windows zip can be produced from any host without picking up a host-platform `.node` by accident.
+- The AppUserModelID + single-instance-lock fix from 1.0.3 is preserved.
+
+---
+
 ## [1.0.3] — 2026-05-09
 
 ### Fixed

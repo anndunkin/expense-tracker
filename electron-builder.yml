@@ -29,8 +29,12 @@ extraResources:
   # Fully self-contained Express server bundle (all JS deps inlined by esbuild)
   - from: dist/index.cjs
     to: server/index.cjs
-  # Native SQLite binary (cannot be bundled — must be a real file)
-  - from: node_modules/better-sqlite3/build/Release/better_sqlite3.node
+  # Native SQLite binary — vendored Windows x64 prebuild for Electron 41 (ABI 145).
+  # Source: https://github.com/WiseLibs/better-sqlite3/releases/tag/v12.9.0
+  # File:   better-sqlite3-v12.9.0-electron-v145-win32-x64.tar.gz
+  # Vendored explicitly so the Windows zip can be built from any host (Linux,
+  # macOS, Windows) without producing a Linux/macOS .node by accident.
+  - from: build/native-win-x64/better_sqlite3.node
     to: native/better_sqlite3.node
   # Built React frontend
   - from: dist/public
