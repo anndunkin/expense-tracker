@@ -14,8 +14,35 @@ export const expenseReports = sqliteTable("expense_reports", {
   filePath: text("file_path").default(""), // last saved-to disk path (Electron only)
 });
 
-export const insertExpenseReportSchema = createInsertSchema(expenseReports).omit({ id: true });
+// Allowed values for the report `status` column. Used by both insert and update
+// schemas so the API rejects anything other than "draft" or "complete".
+export const REPORT_STATUSES = ["draft", "complete"] as const;
+export type ReportStatus = (typeof REPORT_STATUSES)[number];
+
+export const insertExpenseReportSchema = createInsertSchema(expenseReports)
+  .omit({ id: true })
+  .extend({
+    status: z.enum(REPORT_STATUSES).default("draft"),
+    type: z.enum(["monthly", "travel"]),
+  });
+
+// PATCH /api/reports/:id schema — same field rules but every field optional.
+// Critically, this schema strips unknown keys (zod's default behavior on
+// z.object). Older clients that spread the full report record into the PATCH
+// body sent an `id` field; passing that to Drizzle's update().set() would try
+// to overwrite the auto-increment primary key and fail, leaving the row
+// unchanged and the UI's "complete" status reverting back to "draft". By
+// validating + stripping here, only legitimate columns reach the database.
+export const updateExpenseReportSchema = createInsertSchema(expenseReports)
+  .omit({ id: true })
+  .extend({
+    status: z.enum(REPORT_STATUSES),
+    type: z.enum(["monthly", "travel"]),
+  })
+  .partial();
+
 export type InsertExpenseReport = z.infer<typeof insertExpenseReportSchema>;
+export type UpdateExpenseReport = z.infer<typeof updateExpenseReportSchema>;
 export type ExpenseReport = typeof expenseReports.$inferSelect;
 
 // ─── Expense Line Items ──────────────────────────────────────────────────────

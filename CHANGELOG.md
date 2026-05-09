@@ -4,6 +4,24 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.0.5] — 2026-05-09
+
+### Fixed
+- **Marking a report Complete reverted to Draft.** Saving a report (including the status change) sent the row’s `id` field in the PATCH body. The server passed the body straight into Drizzle’s `update().set()`, which attempted to overwrite the auto-increment primary key and aborted the write. The UI showed “Save failed” (or appeared to succeed) and the next page refresh showed status back at “draft.” Both server and client are fixed:
+  - **Server:** `PATCH /api/reports/:id` now validates the body with a Zod schema (`updateExpenseReportSchema`), strips unknown keys (including `id`), enforces `status ∈ {draft, complete}` and `type ∈ {monthly, travel}`, returns a real error message on validation/storage failure, and returns 404 if the report does not exist instead of silently no-oping.
+  - **Client:** `ReportEditorPage` builds the PATCH payload from a column whitelist (`buildReportPatch`), so the row’s `id` and any other non-column fields can never be sent again. Save errors are now surfaced in the toast description with the real server message.
+
+### Added
+- **Unsaved-changes prompt.** The editor now tracks dirty state across all report-meta and line-item edits and warns you before discarding them.
+  - A small amber **Unsaved** badge appears next to the report type while there are pending changes.
+  - Clicking **Back / New / Open / Print** while dirty opens an alert dialog with three choices: **Save and continue**, **Discard changes**, or **Cancel**.
+  - Closing the Electron window or refreshing while dirty triggers Chromium’s native “Changes you made may not be saved” warning (`beforeunload` handler).
+
+### Changed
+- `shared/schema.ts`: added `REPORT_STATUSES` enum, `updateExpenseReportSchema` (partial PATCH schema), and `ReportStatus` type. `insertExpenseReportSchema` now also enforces the `status` and `type` enums.
+
+---
+
 ## [1.0.4] — 2026-05-09
 
 ### Fixed

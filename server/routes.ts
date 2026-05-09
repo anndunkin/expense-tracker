@@ -1,7 +1,11 @@
 import type { Express } from "express";
 import { Server } from "http";
 import { storage } from "./storage";
-import { insertExpenseReportSchema, insertExpenseItemSchema, updateExpenseItemSchema, insertCategorySchema } from "@shared/schema";
+import {
+  insertExpenseReportSchema, updateExpenseReportSchema,
+  insertExpenseItemSchema, updateExpenseItemSchema,
+  insertCategorySchema,
+} from "@shared/schema";
 import { z } from "zod";
 
 // Strip the X-Powered-By header globally — no need to advertise our stack
@@ -46,9 +50,36 @@ export async function registerRoutes(httpServer: Server, app: Express) {
 
   app.patch("/api/reports/:id", (req, res) => {
     const id = parseInt(req.params.id);
-    const updated = storage.updateReport(id, req.body);
-    if (!updated) return res.status(404).json({ error: "Report not found" });
-    res.json(updated);
+    if (!Number.isFinite(id)) return res.status(400).json({ error: "Invalid report id" });
+
+    // Validate + strip unknown keys (incl. `id`) before touching the DB.
+    // This is what fixes "mark complete reverts to draft": the old code
+    // passed req.body straight into Drizzle's set(), and the spread `id`
+    // collided with the auto-increment primary key, aborting the write.
+    const parsed = updateExpenseReportSchema.safeParse(req.body);
+    if (!parsed.success) {
+      return res.status(400).json({
+        error: "Invalid report update",
+        details: parsed.error.flatten(),
+      });
+    }
+    if (Object.keys(parsed.data).length === 0) {
+      return res.status(400).json({ error: "No valid fields to update" });
+    }
+
+    // Make sure the report actually exists — prevents a silent no-op
+    // update that the client would otherwise interpret as success.
+    const existing = storage.getReport(id);
+    if (!existing) return res.status(404).json({ error: "Report not found" });
+
+    try {
+      const updated = storage.updateReport(id, parsed.data);
+      if (!updated) return res.status(500).json({ error: "Update failed" });
+      return res.json(updated);
+    } catch (err: any) {
+      console.error("[PATCH /api/reports/:id] update error:", err);
+      return res.status(500).json({ error: err?.message || "Update failed" });
+    }
   });
 
   app.delete("/api/reports/:id", (req, res) => {

@@ -11,6 +11,10 @@ import { Checkbox } from "@/components/ui/checkbox";
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from "@/components/ui/select";
 import { Separator } from "@/components/ui/separator";
 import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogFooter } from "@/components/ui/dialog";
+import {
+  AlertDialog, AlertDialogAction, AlertDialogCancel, AlertDialogContent,
+  AlertDialogDescription, AlertDialogFooter, AlertDialogHeader, AlertDialogTitle,
+} from "@/components/ui/alert-dialog";
 import { useToast } from "@/hooks/use-toast";
 import { useTheme } from "@/components/ThemeProvider";
 import CategoryManagerDialog from "@/components/CategoryManagerDialog";
@@ -68,6 +72,33 @@ export default function ReportEditorPage() {
   const [saveAsLocation, setSaveAsLocation] = useState(""); // full file path (Electron only)
   const [saveAsWorking, setSaveAsWorking] = useState(false);
 
+  // ─── Unsaved-changes tracking ──────────────────────────────────────────────
+  // isDirty is set whenever the user edits the report meta or any line item.
+  // It's cleared when handleSave succeeds or when the report is freshly
+  // loaded from the server.
+  const [isDirty, setIsDirty] = useState(false);
+  // Snapshot of the last saved state. Used to suppress false-positive dirty
+  // flags when the load effect re-hydrates state with the same content.
+  const lastSavedSnapshotRef = useRef<string>("");
+  // Pending navigation target: when set, the unsaved-changes confirm dialog
+  // is shown; on confirm we run the requested navigation.
+  const [pendingNav, setPendingNav] = useState<null | (() => void)>(null);
+
+  // Whitelist of report columns the API accepts on PATCH. Spreading the entire
+  // reportMeta object (which includes the row's `id` after a load) used to send
+  // the primary key into Drizzle's update().set(), which silently failed and
+  // caused a status change of "complete" to revert to "draft". Always build the
+  // payload from this whitelist.
+  const buildReportPatch = (m: Partial<ExpenseReport>): Partial<ExpenseReport> => ({
+    name: m.name,
+    type: m.type,
+    submitterName: m.submitterName,
+    tripPurpose: m.tripPurpose,
+    dateSubmitted: m.dateSubmitted,
+    status: m.status,
+    filePath: m.filePath,
+  });
+
   // Detect if running inside Electron (preload exposes window.electronAPI)
   const isElectron = typeof window !== "undefined" && !!(window as any).electronAPI;
   const [exchangeRateCache, setExchangeRateCache] = useState<Record<string, number>>({ USD: 1 });
@@ -87,8 +118,54 @@ export default function ReportEditorPage() {
     if (existingData) {
       setReportMeta(existingData.report);
       setItems(existingData.items.map(i => ({ ...i, _dirty: false })));
+      // Seed the saved snapshot so subsequent edits flip isDirty correctly.
+      lastSavedSnapshotRef.current = JSON.stringify({
+        meta: buildReportPatch(existingData.report),
+        items: existingData.items,
+      });
+      setIsDirty(false);
     }
   }, [existingData]);
+
+  // ─── Dirty detection ──────────────────────────────────────────────────────
+  // Recompute the canonical-state snapshot whenever meta or items change
+  // and compare against the last saved snapshot. This catches every kind
+  // of edit (meta fields, line items, status changes) without needing each
+  // setter to manually mark dirty.
+  useEffect(() => {
+    const snapshot = JSON.stringify({
+      meta: buildReportPatch(reportMeta),
+      items: items.map(({ _tempId, _dirty, ...rest }) => rest),
+    });
+    setIsDirty(snapshot !== lastSavedSnapshotRef.current);
+  }, [reportMeta, items]);
+
+  // ─── Browser/Electron-window-close warning ────────────────────────────
+  // Triggers the native "Leave site? Changes you made may not be saved"
+  // prompt when the user tries to close the window or refresh while there
+  // are unsaved changes. Works in Electron (Chromium honors beforeunload
+  // for renderer windows) and in the browser dev environment.
+  useEffect(() => {
+    const handler = (e: BeforeUnloadEvent) => {
+      if (!isDirty) return;
+      e.preventDefault();
+      // Required by some browsers to actually display the prompt.
+      e.returnValue = "";
+    };
+    window.addEventListener("beforeunload", handler);
+    return () => window.removeEventListener("beforeunload", handler);
+  }, [isDirty]);
+
+  // Helper: gate a navigation behind the unsaved-changes prompt.
+  // If the report is clean, runs immediately. If dirty, opens the confirm
+  // dialog and runs the action only when the user picks "Discard changes".
+  const guardedNavigate = useCallback((action: () => void) => {
+    if (!isDirty) {
+      action();
+      return;
+    }
+    setPendingNav(() => action);
+  }, [isDirty]);
 
   // Categories
   const { data: categories = [] } = useQuery<Category[]>({
@@ -158,23 +235,44 @@ export default function ReportEditorPage() {
     try {
       let rid = savedReportId;
       if (!rid) {
-        const created = await createReport.mutateAsync({ ...reportMeta, name: saveName });
+        const created = await createReport.mutateAsync(
+          buildReportPatch({ ...reportMeta, name: saveName }),
+        );
         rid = created.id;
         setSavedReportId(rid);
         setReportMeta(m => ({ ...m, id: rid!, name: saveName }));
         navigate(`/report/${rid}`, { replace: true });
       } else {
-        await updateReport.mutateAsync({ id: rid, data: { ...reportMeta, name: saveName } });
+        // Send only whitelisted fields — never the row's `id`.
+        await updateReport.mutateAsync({
+          id: rid,
+          data: buildReportPatch({ ...reportMeta, name: saveName }),
+        });
       }
       await saveItems(rid, items);
       // Reload items to get IDs
       const res = await apiRequest("GET", `/api/reports/${rid}/items`);
       const savedItems = await res.json();
       setItems(savedItems.map((i: ExpenseItem) => ({ ...i, _dirty: false })));
+      // Clear the dirty flag now that everything is persisted.
+      setIsDirty(false);
+      lastSavedSnapshotRef.current = JSON.stringify({
+        meta: buildReportPatch({ ...reportMeta, name: saveName }),
+        items: savedItems,
+      });
       queryClient.invalidateQueries({ queryKey: ["/api/reports"] });
       toast({ title: "Report saved", description: saveName });
-    } catch {
-      toast({ title: "Save failed", variant: "destructive" });
+      return true;
+    } catch (err: any) {
+      // Surface the real error so users (and we) can debug instead of seeing
+      // a generic "Save failed" while the row silently stays as draft.
+      const message = err?.message?.replace(/^\d+:\s*/, "") || "Unknown error";
+      toast({
+        title: "Save failed",
+        description: message,
+        variant: "destructive",
+      });
+      return false;
     }
   };
 
@@ -396,7 +494,7 @@ export default function ReportEditorPage() {
       <header className="border-b border-border bg-card sticky top-0 z-10">
         <div className="max-w-6xl mx-auto px-4 py-3 flex items-center gap-2 flex-wrap">
           <button
-            onClick={() => navigate("/")}
+            onClick={() => guardedNavigate(() => navigate("/"))}
             className="p-1.5 rounded text-muted-foreground hover:text-foreground hover:bg-accent transition-colors"
             data-testid="button-back"
           >
@@ -420,14 +518,32 @@ export default function ReportEditorPage() {
               data-testid="input-report-name"
             />
             <Badge variant="secondary" className="text-xs flex-shrink-0 capitalize">{rType}</Badge>
+            {isDirty && (
+              <Badge
+                variant="outline"
+                className="text-xs flex-shrink-0 border-amber-500 text-amber-600 dark:text-amber-400"
+                data-testid="badge-unsaved"
+                title="You have unsaved changes"
+              >
+                Unsaved
+              </Badge>
+            )}
           </div>
 
           {/* File menu */}
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => navigate("/")} data-testid="button-new-report">
+            <Button
+              size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
+              onClick={() => guardedNavigate(() => navigate("/"))}
+              data-testid="button-new-report"
+            >
               <FilePlus className="w-3.5 h-3.5" />New
             </Button>
-            <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={handleOpenFile} data-testid="button-file-open">
+            <Button
+              size="sm" variant="outline" className="gap-1.5 h-8 text-xs"
+              onClick={() => guardedNavigate(() => handleOpenFile())}
+              data-testid="button-file-open"
+            >
               <FolderOpen className="w-3.5 h-3.5" />Open
             </Button>
             <Button size="sm" variant="outline" className="gap-1.5 h-8 text-xs" onClick={() => handleSave()} data-testid="button-file-save">
@@ -440,7 +556,11 @@ export default function ReportEditorPage() {
               <FileDown className="w-3.5 h-3.5" />Export
             </Button>
             {savedReportId && (
-              <Button size="sm" variant="default" className="gap-1.5 h-8 text-xs" onClick={() => navigate(`/report/${savedReportId}/print`)} data-testid="button-print">
+              <Button
+                size="sm" variant="default" className="gap-1.5 h-8 text-xs"
+                onClick={() => guardedNavigate(() => navigate(`/report/${savedReportId}/print`))}
+                data-testid="button-print"
+              >
                 <Printer className="w-3.5 h-3.5" />Print
               </Button>
             )}
@@ -643,6 +763,50 @@ export default function ReportEditorPage() {
         onOpenChange={setShowCategoryMgr}
         reportType={rType}
       />
+
+      {/* ─── Unsaved-changes confirmation ──────────────────────────────────────
+          Shown when the user clicks Back/New/Open/Print while there are
+          unsaved edits. "Save" persists then runs the pending action;
+          "Discard" runs it without saving; "Cancel" stays put. */}
+      <AlertDialog
+        open={pendingNav !== null}
+        onOpenChange={(open) => { if (!open) setPendingNav(null); }}
+      >
+        <AlertDialogContent>
+          <AlertDialogHeader>
+            <AlertDialogTitle>You have unsaved changes</AlertDialogTitle>
+            <AlertDialogDescription>
+              This report has changes that haven’t been saved. What would
+              you like to do before leaving?
+            </AlertDialogDescription>
+          </AlertDialogHeader>
+          <AlertDialogFooter>
+            <AlertDialogCancel data-testid="unsaved-cancel">Cancel</AlertDialogCancel>
+            <Button
+              variant="outline"
+              onClick={() => {
+                const action = pendingNav;
+                setPendingNav(null);
+                action?.();
+              }}
+              data-testid="unsaved-discard"
+            >
+              Discard changes
+            </Button>
+            <AlertDialogAction
+              onClick={async () => {
+                const action = pendingNav;
+                setPendingNav(null);
+                const ok = await handleSave();
+                if (ok) action?.();
+              }}
+              data-testid="unsaved-save"
+            >
+              Save and continue
+            </AlertDialogAction>
+          </AlertDialogFooter>
+        </AlertDialogContent>
+      </AlertDialog>
 
       {/* Save As dialog — uses a proper modal instead of window.prompt (blocked in Electron) */}
       <Dialog open={showSaveAs} onOpenChange={v => !saveAsWorking && setShowSaveAs(v)}>
