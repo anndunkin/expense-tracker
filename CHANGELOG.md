@@ -4,6 +4,13 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.0.6] — 2026-05-09
+
+### Changed
+- **Saved Reports list now puts Draft reports on top.** Drafts appear first (newest draft → oldest draft), followed by completed reports (newest → oldest). Previously the list was sorted strictly by id descending, which buried in-progress drafts under older completed reports.
+
+---
+
 ## [1.0.5] — 2026-05-09
 
 ### Fixed

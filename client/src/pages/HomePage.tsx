@@ -92,7 +92,12 @@ export default function HomePage() {
     return () => { delete (window as any).__electronOpenFile; };
   }, [importReport, toast]);
 
-  const sortedReports = [...reports].sort((a, b) => b.id - a.id);
+  const sortedReports = [...reports].sort((a, b) => {
+    const aDraft = a.status === "draft" ? 0 : 1;
+    const bDraft = b.status === "draft" ? 0 : 1;
+    if (aDraft !== bDraft) return aDraft - bDraft;
+    return b.id - a.id;
+  });
 
   return (
     <div className="min-h-screen bg-background">
