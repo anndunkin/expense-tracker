@@ -7,6 +7,32 @@ const isDev = !app.isPackaged;
 const PORT = 5000;
 let mainWindow = null;
 
+// ─── Windows app identity ─────────────────────────────────────────────────────
+// Explicit AppUserModelID is required so Windows treats Expense Track as a
+// distinct application from any other Electron app the user may have running
+// (e.g. TimeTrack). Without this, Windows can route a fresh launch of this
+// shortcut to another already-running Electron process, causing the wrong
+// app to come to the foreground. Must match electron-builder.yml `appId`.
+if (process.platform === "win32") {
+  app.setAppUserModelId("com.expensetrack.app");
+}
+
+// ─── Single-instance lock ─────────────────────────────────────────────────────
+// Scope the instance lock to *this* AppUserModelID. If a second copy of
+// Expense Track is launched, focus the existing window instead of spawning
+// a duplicate process.
+const gotInstanceLock = app.requestSingleInstanceLock();
+if (!gotInstanceLock) {
+  app.quit();
+} else {
+  app.on("second-instance", () => {
+    if (mainWindow) {
+      if (mainWindow.isMinimized()) mainWindow.restore();
+      mainWindow.focus();
+    }
+  });
+}
+
 // ─── Run Express server in-process ───────────────────────────────────────────
 function startServer() {
   return new Promise((resolve, reject) => {
@@ -190,14 +216,16 @@ ipcMain.handle("write-file", async (_event, { filePath, content }) => {
 });
 
 // ─── Lifecycle ─────────────────────────────────────────────────────────────────
-app.whenReady().then(async () => {
-  buildMenu();
-  try {
-    await startServer();
-    createWindow();
-  } catch (err) {
-    dialog.showErrorBox("Startup Error", `ExpenseTrack could not start.\n\n${err.message}`);
-    app.quit();
-  }
-});
-app.on("window-all-closed", () => app.quit());
+if (gotInstanceLock) {
+  app.whenReady().then(async () => {
+    buildMenu();
+    try {
+      await startServer();
+      createWindow();
+    } catch (err) {
+      dialog.showErrorBox("Startup Error", `ExpenseTrack could not start.\n\n${err.message}`);
+      app.quit();
+    }
+  });
+  app.on("window-all-closed", () => app.quit());
+}

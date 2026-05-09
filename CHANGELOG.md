@@ -4,6 +4,18 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.0.3] — 2026-05-09
+
+### Fixed
+- **Windows shortcut activation collision with TimeTrack** — launching Expense Track while TimeTrack was already running would bring the TimeTrack window forward instead of starting Expense Track. Root cause: neither app called `app.setAppUserModelId()`, so Windows treated both Electron apps as the same application for shortcut routing, and the existing TimeTrack single-instance lock captured the activation.
+
+### Changed
+- `electron/main.cjs` now calls `app.setAppUserModelId("com.expensetrack.app")` on Windows before any other lifecycle hook.
+- Added `app.requestSingleInstanceLock()` so a second launch of Expense Track focuses the existing window instead of spawning a duplicate process. Lock is scoped to the explicit AppUserModelID, eliminating cross-app collisions.
+- The matching change has shipped in TimeTrack 1.2.2 (`com.timetrack.app`). Both apps must be on these versions or later for the fix to be complete.
+
+---
+
 ## [1.0.2] — 2026-04-24
 
 ### Added

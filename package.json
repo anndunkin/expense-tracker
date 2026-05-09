@@ -1,6 +1,6 @@
 {
   "name": "expensetrack",
-  "version": "1.0.0",
+  "version": "1.0.3",
   "license": "MIT",
   "type": "module",
   "scripts": {
