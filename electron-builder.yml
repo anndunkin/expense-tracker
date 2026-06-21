@@ -81,8 +81,6 @@ nsis:
   uninstallerIcon: electron/icon.ico
   installerHeaderIcon: electron/icon.ico
   deleteAppDataOnUninstall: false
-  # Installer artifact name
-  installerFileName: "ExpenseTrack-${version}-Windows-x64-Setup.exe"
 
 # afterPack hook: embeds custom icon + version strings into the exe via rcedit+Wine.
 # Version strings (FileDescription, ProductName, etc.) ensure Windows Shell can
