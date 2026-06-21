@@ -1,6 +1,6 @@
 appId: com.expensetrack.app
 productName: Expense Track
-copyright: "Copyright © 2026"
+copyright: "Copyright © 2026 Dunkin Global Advisors"
 
 # No asar — keeps path resolution simple
 asar: false
@@ -41,13 +41,22 @@ extraResources:
     to: public
 
 win:
+  # NSIS installer creates a proper Start Menu shortcut with the AUMI embedded
+  # in the .lnk file at install time — this is the correct fix for the pinned
+  # taskbar icon routing to TimeTrack when both apps are running.
+  #
+  # A plain ZIP shortcut created by dragging to the taskbar does NOT embed the
+  # AUMI, so Windows falls back to matching by FileDescription/ProductName.
+  # Even with version strings embedded via rcedit, the shell can still mis-route
+  # the click if another Electron process is already running.  NSIS eliminates
+  # this ambiguity entirely.
   target:
-    - target: zip
+    - target: nsis
       arch: [x64]
   icon: electron/icon.ico
-  artifactName: "ExpenseTrack-${version}-Windows-x64.zip"
+  artifactName: "ExpenseTrack-${version}-Windows-x64-Setup.exe"
   # Prevent electron-builder from running rcedit itself — our afterPack hook
-  # handles icon embedding explicitly via Wine+rcedit so the taskbar icon works.
+  # handles icon + version-string embedding explicitly.
   signAndEditExecutable: false
   # Code signing — self-signed certificate
   # Publisher: Ann Dunkin / Dunkin Global Advisors
@@ -59,8 +68,25 @@ win:
   # If CSC_LINK is not set, signing is skipped automatically (forceCodeSigning: false)
   forceCodeSigning: false
 
-# afterPack hook: embeds custom icon into the exe via rcedit+Wine so it shows
-# correctly on the Windows taskbar and in Explorer / Alt+Tab.
+nsis:
+  oneClick: false
+  allowToChangeInstallationDirectory: false
+  # Default install to %LOCALAPPDATA% (no admin rights needed)
+  # Override by setting allowToChangeInstallationDirectory: true if preferred
+  allowElevation: false
+  createDesktopShortcut: true
+  createStartMenuShortcut: true
+  shortcutName: "Expense Track"
+  installerIcon: electron/icon.ico
+  uninstallerIcon: electron/icon.ico
+  installerHeaderIcon: electron/icon.ico
+  deleteAppDataOnUninstall: false
+  # Installer artifact name
+  installerFileName: "ExpenseTrack-${version}-Windows-x64-Setup.exe"
+
+# afterPack hook: embeds custom icon + version strings into the exe via rcedit+Wine.
+# Version strings (FileDescription, ProductName, etc.) ensure Windows Shell can
+# uniquely identify Expense Track even when falling back from AUMI matching.
 afterPack: ./build/afterPack.cjs
 
 publish: null
