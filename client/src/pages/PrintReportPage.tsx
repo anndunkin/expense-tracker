@@ -38,12 +38,15 @@ export default function PrintReportPage() {
 
   const reimbursableItems = items.filter(i => !i.billedToCard);
   const cardItems = items.filter(i => i.billedToCard);
-  const totalReimbursable = reimbursableItems.reduce((s, i) => s + i.amountUsd, 0);
-  const totalCard = cardItems.reduce((s, i) => s + i.amountUsd, 0);
-  const totalAll = items.reduce((s, i) => s + i.amountUsd, 0);
+  // Sum in integer cents to avoid IEEE-754 floating-point drift that caused
+  // the total to appear 1 cent higher than the sum of the displayed line items.
+  const totalReimbursable = reimbursableItems.reduce((s, i) => s + Math.round(i.amountUsd * 100), 0) / 100;
+  const totalCard = cardItems.reduce((s, i) => s + Math.round(i.amountUsd * 100), 0) / 100;
+  const totalAll = items.reduce((s, i) => s + Math.round(i.amountUsd * 100), 0) / 100;
   const taxDeductible = reimbursableItems.reduce((s, i) => {
-    return s + (i.category?.toLowerCase() === "meals" ? i.amountUsd * MEAL_RATE : i.amountUsd);
-  }, 0);
+    const cents = Math.round(i.amountUsd * 100);
+    return s + (i.category?.toLowerCase() === "meals" ? Math.round(cents * MEAL_RATE) : cents);
+  }, 0) / 100;
 
   const formatDate = (d: string) => {
     if (!d) return "—";

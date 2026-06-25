@@ -442,7 +442,7 @@ export default function ReportEditorPage() {
       if ("isMileage" in patch || "miles" in patch) {
         const miles = patch.miles ?? updated.miles ?? 0;
         if (patch.isMileage || updated.isMileage) {
-          updated.amountUsd = miles * MILEAGE_RATE;
+          updated.amountUsd = Math.round(miles * MILEAGE_RATE * 100) / 100;
           updated.amount = updated.amountUsd;
           updated.currency = "USD";
           updated.exchangeRate = 1;
@@ -451,12 +451,12 @@ export default function ReportEditorPage() {
       if ("currency" in patch && patch.currency && !updated.isMileage) {
         fetchRate(patch.currency);
         const rate = exchangeRateCache[patch.currency] ?? 1;
-        updated.amountUsd = (updated.amount ?? 0) * rate;
+        updated.amountUsd = Math.round((updated.amount ?? 0) * rate * 100) / 100;
         updated.exchangeRate = rate;
       }
       if ("amount" in patch && !updated.isMileage) {
         const rate = exchangeRateCache[updated.currency ?? "USD"] ?? 1;
-        updated.amountUsd = (patch.amount ?? 0) * rate;
+        updated.amountUsd = Math.round((patch.amount ?? 0) * rate * 100) / 100;
         updated.exchangeRate = rate;
       }
       return updated;
@@ -469,20 +469,22 @@ export default function ReportEditorPage() {
       if (!item.currency || item.currency === "USD" || item.isMileage) return item;
       const rate = exchangeRateCache[item.currency];
       if (!rate) return item;
-      return { ...item, amountUsd: (item.amount ?? 0) * rate, exchangeRate: rate };
+      return { ...item, amountUsd: Math.round((item.amount ?? 0) * rate * 100) / 100, exchangeRate: rate };
     }));
   }, [exchangeRateCache]);
 
   // Totals
   const reimbursableItems = items.filter(i => !i.billedToCard);
   const cardItems = items.filter(i => i.billedToCard);
-  const totalReimbursable = reimbursableItems.reduce((s, i) => s + (i.amountUsd ?? 0), 0);
-  const totalCard = cardItems.reduce((s, i) => s + (i.amountUsd ?? 0), 0);
-  const totalAll = items.reduce((s, i) => s + (i.amountUsd ?? 0), 0);
+  // Sum in integer cents to avoid IEEE-754 floating-point drift that caused
+  // the total to appear 1 cent higher than the sum of the displayed line items.
+  const totalReimbursable = reimbursableItems.reduce((s, i) => s + Math.round((i.amountUsd ?? 0) * 100), 0) / 100;
+  const totalCard = cardItems.reduce((s, i) => s + Math.round((i.amountUsd ?? 0) * 100), 0) / 100;
+  const totalAll = items.reduce((s, i) => s + Math.round((i.amountUsd ?? 0) * 100), 0) / 100;
 
   // Tax deductible: all items except meals are 100%, meals are 50%
   const taxDeductible = items.reduce((s, i) => {
-    const amt = i.billedToCard ? 0 : (i.amountUsd ?? 0); // only reimbursable are deductible
+    const amt = i.billedToCard ? 0 : Math.round((i.amountUsd ?? 0) * 100) / 100; // only reimbursable are deductible
     return s + (i.category?.toLowerCase() === "meals" ? amt * MEAL_DEDUCTION_RATE : amt);
   }, 0);
 
@@ -1056,7 +1058,7 @@ function ItemRowComponent({
             const val = raw === "" ? 0 : parseFloat(raw);
             if (isNaN(val)) return;
             if (isMileage) {
-              onUpdate({ miles: val, amountUsd: val * 0.725, amount: val * 0.725 });
+              onUpdate({ miles: val, amountUsd: Math.round(val * MILEAGE_RATE * 100) / 100, amount: Math.round(val * MILEAGE_RATE * 100) / 100 });
             } else {
               onUpdate({ amount: val });
             }
