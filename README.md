@@ -195,3 +195,16 @@ All endpoints are served at `http://localhost:5000`.
 ## License
 
 MIT
+
+## Security note: pinned dependencies
+
+`keyv` and `cacheable-request` are pinned to `4.5.4` and `7.0.4` respectively via
+the `overrides` field in `package.json`. This is a deliberate protection against
+the August 2026 Keyv/Cacheable npm supply chain attack, which compromised
+`keyv@6.0.0`, `cacheable-request@13.0.20`, and 400+ other packages
+(see the [Wiz writeup](https://www.wiz.io/blog/keyv-and-cacheable-npm-supply-chain-attack)).
+
+These are transitive dependencies pulled in via `got` → `@electron/get` → `electron`.
+**Before removing or updating these overrides**, verify that newer versions of
+`keyv`/`cacheable-request` are confirmed clean against current npm security advisories.
+
