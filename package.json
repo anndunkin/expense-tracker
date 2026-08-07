@@ -110,7 +110,9 @@
   "overrides": {
     "drizzle-kit": {
       "@esbuild-kit/esm-loader": "npm:tsx@^4.20.4"
-    }
+    },
+    "keyv": "4.5.4",
+    "cacheable-request": "7.0.4"
   },
   "description": "Professional expense reporting for monthly and travel expenses",
   "author": "ExpenseTrack",
