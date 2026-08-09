@@ -29,6 +29,20 @@ export async function registerRoutes(httpServer: Server, app: Express) {
     next();
   });
 
+  // ─── Health / identity ──────────────────────────────────────────────────────
+  // The Electron main process calls this before pointing the BrowserWindow at
+  // the local server. The `app` discriminator lets the shell prove it is
+  // talking to *this* application's backend and not another Electron app
+  // (e.g. TimeTrack) that happens to be listening on the same port.
+  app.get("/api/health", (_req, res) => {
+    res.json({
+      app: "expense-track",
+      appId: "com.expensetrack.app",
+      pid: process.pid,
+      ok: true,
+    });
+  });
+
   // ─── Reports ────────────────────────────────────────────────────────────────
   app.get("/api/reports", (req, res) => {
     res.json(storage.getReports());

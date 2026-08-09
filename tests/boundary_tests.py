@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """
 ExpenseTrack Boundary Tests — Mileage totals & Corp card subtotals
 Verifies report-level sums stay accurate when valid, rejected, and
@@ -9,7 +10,9 @@ import requests
 import json
 import sys
 
-BASE = "http://localhost:5000"
+# Port is allocated dynamically by the Electron shell; override with
+# EXPENSE_TRACK_BASE when testing against a running app instance.
+BASE = os.environ.get("EXPENSE_TRACK_BASE", "http://127.0.0.1:5000")
 MILEAGE_RATE = 0.725  # 2026 IRS rate
 
 PASS = 0

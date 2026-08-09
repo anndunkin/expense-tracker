@@ -1,10 +1,13 @@
 const { app, BrowserWindow, shell, Menu, dialog, ipcMain } = require("electron");
 const path = require("path");
-const http = require("http");
 const fs = require("fs");
+const { allocateFreePort, waitForOwnServer } = require("./port-utils.cjs");
 
 const isDev = !app.isPackaged;
-const PORT = 5000;
+
+// Port the in-process Express server listens on. Resolved at runtime by
+// allocateFreePort() -- never hard-coded. See the note in startServer().
+let serverPort = null;
 let mainWindow = null;
 
 // ─── Windows app identity ─────────────────────────────────────────────────────
@@ -34,7 +37,8 @@ if (!gotInstanceLock) {
 }
 
 // ─── Run Express server in-process ───────────────────────────────────────────
-function startServer() {
+function startServer(port) {
+  serverPort = port;
   return new Promise((resolve, reject) => {
     try {
       // Data directory: %APPDATA%/ExpenseTrack in production
@@ -55,7 +59,9 @@ function startServer() {
 
       // Set env vars before requiring the server — storage.ts reads these at module load time
       process.env.DATA_DIR = dataDir;
-      process.env.PORT = String(PORT);
+      process.env.PORT = String(port);
+      // Loopback-only bind: this is a single-user desktop app.
+      process.env.HOST = "127.0.0.1";
       process.env.NODE_ENV = "production";
       process.env.BETTER_SQLITE3_BINDING = nativeBinding;
       // STATIC_DIR tells static.ts where the built React frontend lives.
@@ -78,18 +84,10 @@ function startServer() {
       // Load the Express server — it self-starts on PORT
       require(serverBundle);
 
-      // Poll until ready
-      const start = Date.now();
-      const poll = setInterval(() => {
-        http.get(`http://localhost:${PORT}/api/reports`, (res) => {
-          if (res.statusCode < 500) { clearInterval(poll); resolve(); }
-        }).on("error", () => {
-          if (Date.now() - start > 15000) {
-            clearInterval(poll);
-            reject(new Error("Server did not respond after 15 seconds."));
-          }
-        });
-      }, 200);
+      // Wait for readiness AND confirm the responder is *our* server.
+      // The identity assertion is what guarantees we can never display another
+      // application's UI, whatever else happens to be listening locally.
+      waitForOwnServer(port).then(() => resolve()).catch(reject);
 
     } catch (err) {
       reject(err);
@@ -111,7 +109,7 @@ function createWindow() {
     },
     show: false,
   });
-  mainWindow.loadURL(`http://localhost:${PORT}`);
+  mainWindow.loadURL(`http://127.0.0.1:${serverPort}`);
   mainWindow.once("ready-to-show", () => mainWindow.show());
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url); return { action: "deny" };
@@ -220,7 +218,9 @@ if (gotInstanceLock) {
   app.whenReady().then(async () => {
     buildMenu();
     try {
-      await startServer();
+      const port = await allocateFreePort();
+      console.log(`[electron] Expense Track server port: ${port}`);
+      await startServer(port);
       createWindow();
     } catch (err) {
       dialog.showErrorBox("Startup Error", `ExpenseTrack could not start.\n\n${err.message}`);

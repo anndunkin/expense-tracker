@@ -100,19 +100,40 @@ app.use((req, res, next) => {
     await setupVite(httpServer, app);
   }
 
-  // ALWAYS serve the app on the port specified in the environment variable PORT
-  // Other ports are firewalled. Default to 5000 if not specified.
-  // this serves both the API and the client.
-  // It is the only port that is not firewalled.
+  // Serve on the port specified by the PORT environment variable.
+  //
+  // In the packaged desktop app the Electron main process allocates a free
+  // port at launch and passes it in, so Expense Track never contends with
+  // another locally running Electron app (e.g. TimeTrack) for a fixed port.
+  // 5000 remains the default for `npm run dev` only.
   const port = parseInt(process.env.PORT || "5000", 10);
+
+  // Bind to loopback only. This is a single-user desktop application; there is
+  // no reason to expose the API and SQLite-backed data on every interface.
+  // Override with HOST if a non-desktop deployment ever needs it.
+  const host = process.env.HOST || "127.0.0.1";
+
+  // Fail loudly on a port collision instead of leaving the caller to poll a
+  // port that is answered by some *other* process.
+  httpServer.on("error", (err: NodeJS.ErrnoException) => {
+    if (err.code === "EADDRINUSE") {
+      console.error(
+        `[expense-track] Port ${port} on ${host} is already in use by another process. ` +
+          `Refusing to start so the app cannot attach to a foreign server.`,
+      );
+      process.exit(1);
+    }
+    throw err;
+  });
+
   httpServer.listen(
     {
       port,
-      host: "0.0.0.0",
+      host,
       // reusePort is not supported on Windows — omit it for cross-platform compat
     },
     () => {
-      log(`serving on port ${port}`);
+      log(`serving on ${host}:${port}`);
     },
   );
 })();

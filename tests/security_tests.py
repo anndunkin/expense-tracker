@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """
 ExpenseTrack Security Tests — 34 tests across 8 attack categories.
 
@@ -11,7 +12,9 @@ import requests
 import json
 import sys
 
-BASE = "http://localhost:5000"
+# Port is allocated dynamically by the Electron shell; override with
+# EXPENSE_TRACK_BASE when testing against a running app instance.
+BASE = os.environ.get("EXPENSE_TRACK_BASE", "http://127.0.0.1:5000")
 PASS = 0
 FAIL = 0
 FAILURES = []

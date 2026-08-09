@@ -4,6 +4,26 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.1.2] — 2026-08-08
+
+### Fixed
+- **Launching Expense Track opened TimeTrack instead when TimeTrack was already running.** Both applications embed a local Express server and both hard-coded port **5000**. When TimeTrack started first it owned the port; Expense Track's own `listen()` then lost the race, but the startup readiness probe (`GET /api/reports`, accepting any status below 500) was happily answered by **TimeTrack's** server. The main process treated that as "my server is up" and pointed the `BrowserWindow` at `http://localhost:5000`, which rendered TimeTrack's UI inside the Expense Track window. Fixed at three levels:
+  - **Dynamic port allocation.** `electron/port-utils.cjs` now probes a private range (5731–5738) at launch and falls back to an OS-assigned ephemeral port if all are taken. No port is hard-coded anywhere in the packaged app, so contention with TimeTrack — or any other local service — is structurally impossible. Port 5000 remains the default for `npm run dev` only.
+  - **Server identity verification.** New `GET /api/health` returns `{ app: "expense-track", appId: "com.expensetrack.app", pid }`. The main process now waits for that specific response before loading the window and aborts with an explicit error if a different application answers, so the wrong UI can never be displayed even if a port is somehow reused.
+  - **Fail-fast on collision.** The Express server now handles `EADDRINUSE` and exits with a clear message instead of leaving the shell to poll a port owned by another process.
+
+### Changed
+- **Server binds to `127.0.0.1` instead of `0.0.0.0`.** Expense Track is a single-user desktop application; the API and its SQLite-backed data were previously reachable from every network interface on the machine. Override with the `HOST` environment variable if a non-desktop deployment ever needs it.
+- The `BrowserWindow` now loads `http://127.0.0.1:<port>` rather than `localhost`, avoiding IPv6/IPv4 `localhost` resolution ambiguity on Windows.
+
+### Added
+- `tests/port_isolation_tests.cjs` — 12 regression tests covering port allocation, preferred-range fallback, ephemeral fallback, rejection of a TimeTrack impostor, rejection of unidentified servers, oversized-response handling, and an end-to-end check that boots the real server bundle while a fake TimeTrack holds port 5000.
+
+### Removed
+- `electron/main.js` — dead, unshipped predecessor of `main.cjs` that also hard-coded port 5000 and spawned the server as a child process. Removed to keep a single source of truth for startup behaviour.
+
+---
+
 ## [1.0.6] — 2026-05-09
 
 ### Changed

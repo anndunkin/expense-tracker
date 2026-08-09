@@ -1,4 +1,5 @@
 #!/usr/bin/env python3
+import os
 """
 ExpenseTrack Functionality Tests — covers all features including recent additions.
 
@@ -28,7 +29,9 @@ import json
 import sys
 import time
 
-BASE = "http://localhost:5000"
+# Port is allocated dynamically by the Electron shell; override with
+# EXPENSE_TRACK_BASE when testing against a running app instance.
+BASE = os.environ.get("EXPENSE_TRACK_BASE", "http://127.0.0.1:5000")
 PASS = 0
 FAIL = 0
 FAILURES = []
