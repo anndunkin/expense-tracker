@@ -31,14 +31,34 @@ A professional desktop expense reporting application for Windows. Supports month
 
 | Layer | Technology |
 |---|---|
-| Desktop shell | [Electron](https://www.electronjs.org/) 41 (ABI 145) |
-| Frontend | [React](https://react.dev/) 18, [Vite](https://vite.dev/) 7, [Tailwind CSS](https://tailwindcss.com/) 3, [shadcn/ui](https://ui.shadcn.com/) |
+| Desktop shell | [Electron](https://www.electronjs.org/) 43 |
+| Frontend | [React](https://react.dev/) 19, [Vite](https://vite.dev/) 8, [Tailwind CSS](https://tailwindcss.com/) 4, [shadcn/ui](https://ui.shadcn.com/) |
 | Backend | [Express](https://expressjs.com/) 5 (runs in-process inside Electron) |
 | Database | [SQLite](https://www.sqlite.org/) via [better-sqlite3](https://github.com/WiseLibs/better-sqlite3) 12 + [Drizzle ORM](https://orm.drizzle.team/) |
-| Validation | [Zod](https://zod.dev/) — enforced on every API write path |
+| Validation | [Zod](https://zod.dev/) 4 — enforced on every API write path |
 | Exchange rates | [open.er-api.com](https://www.exchangerate-api.com/) (free tier, no key required) — 1-hour cache |
-| Bundler | [esbuild](https://esbuild.github.io/) — all server dependencies bundled to a single `dist/index.cjs` |
-| Packaging | [electron-builder](https://www.electron.build/) — produces a self-contained zip (81 files) |
+| Bundler | [Vite](https://vite.dev/) 8 + [esbuild](https://esbuild.github.io/) — client and single-file `dist/index.cjs` server bundle |
+| Packaging | [electron-builder](https://www.electron.build/) 26 — produces a self-contained zip |
+
+---
+
+## Dependency modernization (v1.1.3)
+
+The August 2026 modernization updates Electron to 43.4.0, React/React DOM to
+19.2.8, Vite to 8.2.1, Tailwind CSS to 4.3.3, TypeScript to 7.0.2, Zod to
+4.4.3, Express to 5.2.1, and the complete Radix UI, Drizzle, Supabase, Axios,
+Framer Motion, Recharts, and supporting dependency set to current stable
+releases. The migrations follow the [React 19 upgrade guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide),
+[Vite migration guide](https://vite.dev/guide/migration), [Tailwind CSS v4
+upgrade guide](https://tailwindcss.com/docs/upgrade-guide), and [Zod v4 migration
+guide](https://zod.dev/v4/changelog).
+
+The UI wrapper layer was updated for [React DayPicker v10](https://daypicker.dev/upgrading),
+[react-resizable-panels v4](https://github.com/bvaughn/react-resizable-panels/blob/main/CHANGELOG.md),
+and [Recharts 3](https://github.com/recharts/recharts/wiki/3.0-migration-guide).
+`better-sqlite3` intentionally remains on the verified 12.x line
+(`^12.11.1`): version 13.x segfaults in this Node 20 sandbox. The required
+`keyv@4.5.4` and `cacheable-request@7.0.4` security overrides remain exact.
 
 ---
 
@@ -104,12 +124,12 @@ Produces:
 
 ### Build Windows app
 ```bash
-# Requires the Windows ABI-145 native binary in node_modules/better-sqlite3/build/Release/
+# Requires a Windows native binary compatible with Electron 43 in node_modules/better-sqlite3/build/Release/
 npm run build:electron
 ```
-Output: `dist-electron/win-unpacked/` and `dist-electron/ExpenseTrack-1.0.2-Windows-x64.zip`
+Output: `dist-electron/win-unpacked/` and `dist-electron/ExpenseTrack-<version>-Windows-x64.zip`
 
-> **Note for cross-compilation:** Building on Linux requires the Windows prebuilt binary for `better-sqlite3`. Download `better-sqlite3-v12.9.0-electron-v145-win32-x64.tar.gz` from the [better-sqlite3 releases page](https://github.com/WiseLibs/better-sqlite3/releases) and extract `better_sqlite3.node` to `node_modules/better-sqlite3/build/Release/` before running electron-builder.
+> **Note for cross-compilation:** Building on Linux requires a Windows prebuilt binary for the installed `better-sqlite3` and Electron versions. Download the matching asset from the [better-sqlite3 releases page](https://github.com/WiseLibs/better-sqlite3/releases) and extract `better_sqlite3.node` to `node_modules/better-sqlite3/build/Release/` before running electron-builder.
 
 ---
 
@@ -207,4 +227,3 @@ the August 2026 Keyv/Cacheable npm supply chain attack, which compromised
 These are transitive dependencies pulled in via `got` → `@electron/get` → `electron`.
 **Before removing or updating these overrides**, verify that newer versions of
 `keyv`/`cacheable-request` are confirmed clean against current npm security advisories.
-

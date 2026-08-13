@@ -4,6 +4,39 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.1.3] — 2026-08-13
+
+### Changed
+- **Complete dependency modernization.** Upgraded Electron to 43.4.0 and
+  electron-builder to 26.15.3, with the complete dependency graph regenerated.
+  Major upgrades include React/React DOM 19.2.8, Vite 8.2.1, Tailwind CSS
+  4.3.3, TypeScript 7.0.2, Zod 4.4.3, Recharts 3.10.1, DayPicker 10.0.1,
+  react-resizable-panels 4.12.2, Framer Motion 13.1.0, date-fns 4.4.0,
+  Express 5.2.1, and current Radix UI, Drizzle, Supabase, Axios, ws, tsx,
+  esbuild, type packages, and supporting libraries.
+- **Modernized integration code.** Replaced Tailwind 3/PostCSS processing with
+  the Tailwind 4 Vite plugin; removed TypeScript's obsolete `baseUrl`;
+  migrated Zod enum error handling; updated DayPicker v10 class/component
+  mappings, react-resizable-panels v4 primitives, and Recharts 3 tooltip and
+  legend types. See the [React 19 guide](https://react.dev/blog/2024/04/25/react-19-upgrade-guide),
+  [Vite migration guide](https://vite.dev/guide/migration), [Tailwind v4
+  guide](https://tailwindcss.com/docs/upgrade-guide), [Zod v4 guide](https://zod.dev/v4/changelog),
+  [DayPicker guide](https://daypicker.dev/upgrading), and [Recharts guide](https://github.com/recharts/recharts/wiki/3.0-migration-guide).
+
+### Security
+- Preserved the required exact `keyv@4.5.4` and
+  `cacheable-request@7.0.4` overrides after a clean reinstall.
+- Kept `better-sqlite3` on the verified 12.x line (`^12.11.1`). The current
+  13.x release segfaults in the Node 20 sandbox, while the installed native
+  module passed an in-memory SQLite smoke test.
+
+### Validation
+- `npm run check` passed with TypeScript 7.
+- `npm run build` passed with the Vite 8 client and esbuild server bundle.
+- This repository has no configured `npm test` script/test runner (pre-existing).
+
+---
+
 ## [1.1.2] — 2026-08-08
 
 ### Fixed
