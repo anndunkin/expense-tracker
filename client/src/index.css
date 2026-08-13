@@ -57,18 +57,34 @@
   --ring: 213 65% 58%;
 }
 
-/* ── Base ───────────────────────────────────────────────────── */
-*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
-html {
-  -webkit-font-smoothing: antialiased;
-  -moz-osx-font-smoothing: grayscale;
-  scroll-behavior: smooth;
-}
-body {
-  min-height: 100dvh;
-  font-family: var(--font-body);
-  background-color: hsl(var(--background));
-  color: hsl(var(--foreground));
+/* ── Base ──────────────────────────────────────────────── */
+/* Explicitly placed in Tailwind's `base` layer. Tailwind v4 already ships an
+   equivalent `*, ::before, ::after { box-sizing: border-box; margin: 0;
+   padding: 0; }` reset as part of its own preflight (loaded via
+   `@import "tailwindcss"` above). Without `@layer base` here, this block
+   was emitted as plain trailing CSS *after* the generated `utilities` layer
+   (which contains classes like `.mx-auto`). Because a plain `margin: 0`
+   shorthand and a utility's `margin-inline: auto` both resolve to the same
+   physical margin-left/margin-right longhands, the one later in the
+   cascade wins regardless of which rule "looks" more specific -- so this
+   duplicate reset was silently overriding every `mx-auto` (and any other
+   margin utility) app-wide, collapsing all centered/margined layout to the
+   left with dead space on the right that didn't respond to window resizing.
+   Wrapping it in `@layer base` merges it with Tailwind's own base layer so
+   it's correctly ordered *before* `utilities` again. */
+@layer base {
+  *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+  html {
+    -webkit-font-smoothing: antialiased;
+    -moz-osx-font-smoothing: grayscale;
+    scroll-behavior: smooth;
+  }
+  body {
+    min-height: 100dvh;
+    font-family: var(--font-body);
+    background-color: hsl(var(--background));
+    color: hsl(var(--foreground));
+  }
 }
 
 /* Monospace for numbers */

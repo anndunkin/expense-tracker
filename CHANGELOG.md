@@ -4,6 +4,39 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.1.5] — 2026-08-13
+
+### Fixed
+- **Layout pinned to the left with dead space on the right; content did not
+  resize with the window.** Root cause: the Tailwind v3→v4 migration in
+  v1.1.3 moved `client/src/index.css`'s custom base reset (`*, *::before,
+  *::after { margin: 0; padding: 0; }`, plus the `html`/`body` rules) out
+  from Tailwind's `base` layer. Tailwind v4's CSS-import pipeline
+  (`@import "tailwindcss"`) processes everything declared after its own
+  layer directives, and without an explicit `@layer base { ... }` wrapper
+  this block ended up emitted a second time, positioned *after* the
+  generated `utilities` layer in the compiled stylesheet. Because a plain
+  `margin: 0` shorthand and a utility class's `margin-inline: auto`
+  (used by `mx-auto`) both resolve to the same physical `margin-left`/
+  `margin-right` longhands, whichever rule appears later in the cascade
+  wins — so this trailing duplicate reset silently zeroed out `mx-auto`
+  (and any other margin utility) everywhere in the app, collapsing every
+  centered container to the left edge with a `max-width` that never
+  responded to window resizing. Wrapped the custom base rules in an
+  explicit `@layer base { ... }` in `client/src/index.css` so they merge
+  correctly with Tailwind's own base layer and are ordered before
+  `utilities` again.
+  Verified with a real headless Chrome render (this sandbox cannot run
+  Electron's GUI, so Puppeteer/Chrome-for-Testing was used to load the
+  built production bundle): confirmed via Chrome DevTools Protocol that
+  `.mx-auto`'s `margin-inline: auto` now wins the cascade, `<main>`'s
+  computed `margin-left`/`margin-right` are equal and non-zero, and the
+  content re-centers correctly at multiple window widths (1600px → 288px
+  margins each side; 900px → full width, since that's narrower than the
+  1024px `max-w-5xl` cap).
+
+---
+
 ## [1.1.4] — 2026-08-13
 
 ### Fixed
