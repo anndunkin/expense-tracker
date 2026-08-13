@@ -114,6 +114,39 @@ function createWindow() {
   mainWindow.webContents.setWindowOpenHandler(({ url }) => {
     shell.openExternal(url); return { action: "deny" };
   });
+
+  // ─── Unsaved-changes confirmation on close ─────────────────────────────
+  // The renderer (ReportEditorPage) registers a DOM `beforeunload` handler
+  // that calls preventDefault() when a report has unsaved edits. In a real
+  // browser this triggers a built-in "Leave site?" confirmation dialog, but
+  // Electron does NOT show any dialog for a cancelled beforeunload — per
+  // Electron's docs, "returning a non-void value will silently cancel the
+  // close." With no `close`/`will-prevent-unload` handler in the main
+  // process, the window simply refuses to close with zero visible feedback,
+  // which looked like the app hanging and required Task Manager to force it
+  // shut. `will-prevent-unload` fires exactly when the renderer's
+  // beforeunload wants to block; show a real confirmation dialog here and
+  // let the user choose to discard changes and close, or stay.
+  mainWindow.webContents.on("will-prevent-unload", (event) => {
+    if (!mainWindow) return;
+    const choice = dialog.showMessageBoxSync(mainWindow, {
+      type: "question",
+      buttons: ["Close Without Saving", "Cancel"],
+      defaultId: 1,
+      cancelId: 1,
+      title: "Unsaved Changes",
+      message: "You have unsaved changes in this report.",
+      detail: "If you close now, your changes will be lost.",
+    });
+    if (choice === 0) {
+      // User chose to discard changes — ignore the renderer's beforeunload
+      // veto so the close/quit proceeds normally.
+      event.preventDefault();
+    }
+    // choice === 1 (Cancel): do nothing, leaving the unload blocked and the
+    // window open, exactly like a browser's "Stay on page" choice.
+  });
+
   mainWindow.on("closed", () => { mainWindow = null; });
 }
 

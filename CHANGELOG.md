@@ -4,6 +4,33 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.1.4] — 2026-08-13
+
+### Fixed
+- **App would not close / required Task Manager to force-quit.** The report
+  editor registers a DOM `beforeunload` handler that blocks closing while a
+  report has unsaved changes (e.g. an open "draft" report). In a normal
+  browser, cancelling `beforeunload` shows a built-in "Leave site?"
+  confirmation dialog the user can accept or dismiss. Electron does **not**
+  show any dialog for this — per Electron's own documentation, "returning a
+  non-void value will silently cancel the close." With no handler in the
+  main process to catch that cancellation, the window simply refused to
+  close with no visible error, dialog, or feedback of any kind, which looked
+  and behaved exactly like a hung/frozen application and required killing
+  the process from Task Manager. Added a `will-prevent-unload` listener on
+  the window's `webContents` in `electron/main.cjs` that shows a real native
+  "Unsaved Changes — Close Without Saving / Cancel" dialog whenever the
+  renderer's `beforeunload` handler tries to block the close, so the app now
+  either closes cleanly (if the user discards changes) or stays open with a
+  clear reason (if the user cancels) — matching the intended browser-style
+  unsaved-changes prompt instead of hanging silently.
+- Clarified in the report-list screenshot review that a second, unrelated
+  desktop window (a different one of the user's apps) visible behind
+  ExpenseTrack in a bug report was not a rendering defect inside
+  ExpenseTrack itself; no separate UI change was needed for that report.
+
+---
+
 ## [1.1.3] — 2026-08-13
 
 ### Changed
