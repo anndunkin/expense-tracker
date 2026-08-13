@@ -84,7 +84,7 @@ export const insertExpenseItemSchema = createInsertSchema(expenseItems)
     miles: z.number().finite().nonnegative({ message: "Miles must be 0 or greater" }).optional().default(0),
     // currency: must be one of the supported codes
     currency: z.enum(SUPPORTED_CURRENCIES, {
-      errorMap: () => ({ message: `Currency must be one of: ${SUPPORTED_CURRENCIES.join(", ")}` }),
+      error: `Currency must be one of: ${SUPPORTED_CURRENCIES.join(", ")}`,
     }),
   })
   .superRefine((data, ctx) => {
@@ -107,7 +107,7 @@ const baseExpenseItemSchema = createInsertSchema(expenseItems)
     exchangeRate: z.number().finite().positive({ message: "Exchange rate must be greater than 0" }),
     miles: z.number().finite().nonnegative({ message: "Miles must be 0 or greater" }).optional().default(0),
     currency: z.enum(SUPPORTED_CURRENCIES, {
-      errorMap: () => ({ message: `Currency must be one of: ${SUPPORTED_CURRENCIES.join(", ")}` }),
+      error: `Currency must be one of: ${SUPPORTED_CURRENCIES.join(", ")}`,
     }),
   });
 
