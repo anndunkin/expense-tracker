@@ -49,9 +49,12 @@ jobs:
           cp node_modules/better-sqlite3/build/Release/better_sqlite3.node build/native-win-x64/better_sqlite3.node
           echo "Refreshed build/native-win-x64/better_sqlite3.node for Electron 43 (ABI 148)"
 
-      # ── 5. Type-check (no automated test suite exists for this app) ──────────
+      # ── 5. Type-check and report ordering regression tests ──────────────────
       - name: Type-check
         run: npm run check
+
+      - name: Test report ordering
+        run: npm run test:report-order
 
       # ── 6. Build client + server bundle (esbuild + vite) ─────────────────────
       - name: Build

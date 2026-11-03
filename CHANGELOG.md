@@ -4,6 +4,17 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [Unreleased]
+
+### Fixed
+- Generated reports now show prepaid expenses first, followed by dated expenses
+  from earliest to latest, regardless of entry order. Applies to monthly and
+  travel reports, including each existing reimbursable/corporate-card section.
+- Equal-date and prepaid entries retain their relative order. Blank or invalid
+  dates appear after valid dated expenses. Editor order and totals are unchanged.
+
+---
+
 ## [1.1.5] — 2026-08-13
 
 ### Fixed

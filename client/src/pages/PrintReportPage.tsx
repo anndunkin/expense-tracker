@@ -1,6 +1,7 @@
 import { useParams, useLocation } from "wouter";
 import { useQuery } from "@tanstack/react-query";
 import { apiRequest } from "@/lib/queryClient";
+import { sortReportItems } from "@/lib/report-order";
 import { Button } from "@/components/ui/button";
 import type { ExpenseReport, ExpenseItem } from "@shared/schema";
 import { SETTINGS_KEYS } from "@shared/schema";
@@ -33,7 +34,8 @@ export default function PrintReportPage() {
     return <div className="p-8 text-center text-muted-foreground">Loading report…</div>;
   }
 
-  const { report, items } = data;
+  const { report } = data;
+  const items = sortReportItems(data.items);
   const isTravel = report.type === "travel";
 
   const reimbursableItems = items.filter(i => !i.billedToCard);

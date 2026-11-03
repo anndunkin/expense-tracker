@@ -8,6 +8,7 @@
     "build": "tsx script/build.ts",
     "start": "NODE_ENV=production node dist/index.cjs",
     "check": "tsc",
+    "test:report-order": "tsx --test tests/report-order.test.ts",
     "db:push": "drizzle-kit push",
     "build:electron": "npm run build && electron-builder --config electron-builder.yml",
     "electron:dev": "npm run build && electron ."

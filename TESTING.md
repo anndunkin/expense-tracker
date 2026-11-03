@@ -6,6 +6,16 @@ This document describes the test coverage for ExpenseTrack. All tests run agains
 
 ## Running Tests
 
+Report ordering regression tests need no running server:
+
+```bash
+npm run test:report-order
+```
+
+These cover prepaid-first chronological ordering, entry-order permutations,
+same-date stability, missing/invalid dates, non-mutation, and actual rendered
+monthly/travel report tables and totals using fixture data.
+
 Start the development server first:
 ```bash
 npm run dev
