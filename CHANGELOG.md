@@ -4,6 +4,22 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
+## [1.1.7] — 2026-11-02
+
+### Security
+- Electron 43.4.0 -> 43.8.6 (patch release on the same major; fixes advisories against 43.4.0).
+- Cleared the 1 critical and 12 high audit findings: axios 1.21.0, vite 8.3.5, zod 4.6.7, Express 5.3.0, plus transitive fixes for proxy-addr, body-parser, qs, @xmldom/xmldom, brace-expansion, fast-uri, follow-redirects, js-yaml, source-map-js and undici.
+- `keyv` 4.5.4 and `cacheable-request` 7.0.4 overrides verified intact.
+
+### Changed
+- React / React DOM 19.3.1, framer-motion 14.9.0, @hookform/resolvers 7.0.1, dotenv 18.0.9, @supabase/supabase-js 2.118.0, drizzle-orm 0.45.4, electron-builder 26.18.1, Tailwind CSS 4.3.4, all Radix UI packages, and related UI, type and build tooling.
+- Verified: TypeScript check, production build, report-ordering tests (7/7), all 135 backend tests (38 security, 22 validation, 75 boundary), and a headless-Chrome render confirming the page is still centered and resizes correctly (the v1.1.5 layout fix is intact) with no script errors.
+
+### Notes
+- Remaining 17 moderate findings are one minimatch denial-of-service advisory inside electron-builder's build-time toolchain; they do not ship in the installed app, and npm's only suggested "fix" is a downgrade to electron-builder 20.
+
+---
+
 ## [1.1.6] - 2026-11-02
 
 ### Fixed
