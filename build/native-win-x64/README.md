@@ -1,9 +1,16 @@
 # Windows SQLite Native Binding
 
-Pre-built `better-sqlite3` native module for Electron 41 / ABI 145 on Windows x64.
+Pre-built `better-sqlite3` native module for Electron 43.4.0 / ABI 148 on Windows x64.
 
-Source: https://github.com/WiseLibs/better-sqlite3/releases/tag/v12.9.0
-File:   better-sqlite3-v12.9.0-electron-v145-win32-x64.tar.gz
+Recovered unchanged from the existing Expense Track v1.1.5 Windows installer,
+whose release workflow rebuilt `better-sqlite3` for Electron on Windows:
+https://github.com/anndunkin/expense-tracker/releases/download/v1.1.5/ExpenseTrack-1.1.5-Windows-x64-Setup.exe
+
+SHA-256: `684e05547997ac7617b87b86a70fae7625fbd31c31f4147093c274128065f59a`
+
+Verified by loading it in the Windows Electron 43.4.0 runtime under Wine and
+performing SQLite create/insert/select operations. The packaged server also
+passed health, frontend-serving, and report-save/readback smoke tests.
 
 This file is vendored here so Windows builds can be produced from any host
 (Linux, macOS) without accidentally packaging the host-platform .node file.

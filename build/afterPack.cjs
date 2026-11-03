@@ -56,7 +56,7 @@ module.exports = async function afterPack(context) {
   }
 
   // Pad version to 4-part format required by Windows (e.g. "1.1.0" → "1.1.0.0")
-  const versionParts = version.split('.').concat(['0', '0', '0']).slice(0, 4).join('.');
+  const versionParts = version.split('-')[0].split('.').concat(['0', '0', '0']).slice(0, 4).join('.');
 
   const args = [
     exePath,

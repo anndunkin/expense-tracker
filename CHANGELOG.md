@@ -4,7 +4,7 @@ All notable changes to ExpenseTrack are documented here.
 
 ---
 
-## [Unreleased]
+## [1.1.6] - 2026-11-02
 
 ### Fixed
 - Generated reports now show prepaid expenses first, followed by dated expenses
@@ -12,6 +12,15 @@ All notable changes to ExpenseTrack are documented here.
   travel reports, including each existing reimbursable/corporate-card section.
 - Equal-date and prepaid entries retain their relative order. Blank or invalid
   dates appear after valid dated expenses. Editor order and totals are unchanged.
+- Windows executable metadata now supports prerelease version labels.
+- Refreshed the vendored Windows SQLite binding from the v1.1.5 installer
+  to match Electron 43.4.0 / ABI 148.
+
+### Validation
+- All 233 automated checks passed, including report rendering and ordering.
+- Type-checking and the production build passed.
+- Windows runtime and database smoke tests passed under Wine.
+- The user tested the 1.1.6-test.1 Windows installer and confirmed the update works.
 
 ---
 
